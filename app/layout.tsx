@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import ChatWidget from '@/components/chat-widget';
 import "./globals.css";
 
-// Dùng Inter chuẩn hỗ trợ tiếng Việt
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin", "vietnamese"],
@@ -14,8 +14,13 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TLU Social",
-  description: "Mạng xã hội chia sẻ tài liệu Thủy Lợi",
+  title: "TLU Social - Mạng xã hội chia sẻ tài liệu Thủy Lợi",
+  description: "Mạng xã hội chia sẻ tài liệu, đề thi và slide bài giảng dành riêng cho sinh viên Đại học Thủy Lợi",
+  icons: {
+    icon: "/logo-tlu.png",
+    shortcut: "/logo-tlu.png",
+    apple: "/logo-tlu.png",
+  },
 };
 
 export default function RootLayout({
@@ -30,6 +35,8 @@ export default function RootLayout({
     >
       <body className={`${inter.className} min-h-full flex flex-col`}>
         {children}
+        {/* ChatWidget tự quản lý auth status & tự lắng nghe event chat */}
+        <ChatWidget />
       </body>
     </html>
   );

@@ -10,6 +10,7 @@ import UserAvatar from '@/components/user-avatar';
 import UserBadge from '@/components/user-badge';
 import FriendButton from '@/components/friend-button';
 import FriendListModal from '@/components/friend-list-modal';
+import MessageButton from '@/components/message-button';
 
 export default function PublicProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -155,6 +156,11 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
             {/* 💥 NÚT KẾT BẠN */}
             {currentUserId && (
               <FriendButton currentUserId={currentUserId} targetUserId={targetUserId} />
+            )}
+
+            {/* 💥 BỔ SUNG NÚT NHẮN TIN TẠI ĐÂY */}
+            {profile && currentUserId && (
+              <MessageButton targetUser={profile} currentUserId={currentUserId} variant="full" />
             )}
 
             {/* 💥 NÚT XEM DANH SÁCH BẠN BÈ CỦA USER NÀY */}

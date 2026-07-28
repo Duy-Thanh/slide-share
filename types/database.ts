@@ -41,3 +41,24 @@ export interface CommentItem {
   created_at: string;
   profiles?: Profile;
 }
+
+export interface Conversation {
+  id: string;
+  user1_id: string;
+  user2_id: string;
+  last_message?: string;
+  updated_at: string;
+  created_at: string;
+  user1?: Profile;
+  user2?: Profile;
+}
+
+export interface MessageItem {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+  sender?: Profile;
+}

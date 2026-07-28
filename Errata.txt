@@ -1,0 +1,1 @@
+- Chuyển tab (Mới nhất -> Môn hot -> Bookmark -> Mới nhất) document-card lỗi mất state, thử lại thì bảo không thể thả tim
