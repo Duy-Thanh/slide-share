@@ -6,6 +6,7 @@ export interface Profile {
   class_name?: string;
   avatar_url?: string;
   points: number;
+  badge?: 'verified' | 'vip' | 'admin' | null; // 💥 THÊM DÒNG NÀY
   created_at: string;
 }
 

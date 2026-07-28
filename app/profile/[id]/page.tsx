@@ -4,9 +4,12 @@ import { useState, useEffect, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import { DocumentItem, Profile } from '@/types/database';
 import DocumentCard from '@/components/document-card';
-import { Coins, Folder, ArrowLeft, GraduationCap } from 'lucide-react';
+import { Coins, Folder, ArrowLeft, Users } from 'lucide-react';
 import Link from 'next/link';
 import UserAvatar from '@/components/user-avatar';
+import UserBadge from '@/components/user-badge';
+import FriendButton from '@/components/friend-button';
+import FriendListModal from '@/components/friend-list-modal';
 
 export default function PublicProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -17,69 +20,70 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userDocs, setUserDocs] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isFriendListOpen, setIsFriendListOpen] = useState(false);
 
   useEffect(() => {
     fetchPublicProfile();
   }, [targetUserId]);
 
-  // Trong app/profile/[id]/page.tsx:
   const fetchPublicProfile = async () => {
     setLoading(true);
 
     // 1. Lấy thông tin user hiện tại
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (session?.user) {
-        setCurrentUserId(session.user.id);
-        const { data: myProf } = await supabase
+      setCurrentUserId(session.user.id);
+      const { data: myProf } = await supabase
         .from('profiles')
         .select('points')
         .eq('id', session.user.id)
         .single();
-        if (myProf) setCurrentUserPoints(myProf.points || 0);
+      if (myProf) setCurrentUserPoints(myProf.points || 0);
     }
 
     // 2. Lấy thông tin Profile của người được xem
     const { data: profData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', targetUserId)
-        .single();
+      .from('profiles')
+      .select('*')
+      .eq('id', targetUserId)
+      .single();
 
     if (profData) {
-        setProfile(profData);
+      setProfile(profData);
     }
 
-    // 3. Lấy danh sách tài liệu người này đã đăng (Thêm comments(count))
+    // 3. Lấy danh sách tài liệu người này đã đăng
     const { data: docsData } = await supabase
-        .from('documents')
-        .select('*, profiles(*), comments(count)') // 💥 Thêm comments(count)
-        .eq('user_id', targetUserId)
-        .order('created_at', { ascending: false });
+      .from('documents')
+      .select('*, profiles(*), comments(count)')
+      .eq('user_id', targetUserId)
+      .order('created_at', { ascending: false });
 
     if (docsData) {
-        let formattedDocs = docsData.map((doc: any) => ({
+      let formattedDocs = docsData.map((doc: any) => ({
         ...doc,
-        comments_count: doc.comments?.[0]?.count || 0, // 💥 Gán số cmt
-        }));
+        comments_count: doc.comments?.[0]?.count || 0,
+      }));
 
-        // Map thêm trạng thái Upvote/Bookmark của user hiện tại
-        if (session?.user?.id) {
+      if (session?.user?.id) {
         const [upvotesRes, bookmarksRes] = await Promise.all([
-            supabase.from('upvotes').select('document_id').eq('user_id', session.user.id),
-            supabase.from('bookmarks').select('document_id').eq('user_id', session.user.id),
+          supabase.from('upvotes').select('document_id').eq('user_id', session.user.id),
+          supabase.from('bookmarks').select('document_id').eq('user_id', session.user.id),
         ]);
 
         const myUpvotedIds = new Set(upvotesRes.data?.map((u) => u.document_id) || []);
         const myBookmarkedIds = new Set(bookmarksRes.data?.map((b) => b.document_id) || []);
 
         formattedDocs = formattedDocs.map((doc) => ({
-            ...doc,
-            has_upvoted: myUpvotedIds.has(doc.id),
-            has_bookmarked: myBookmarkedIds.has(doc.id),
+          ...doc,
+          has_upvoted: myUpvotedIds.has(doc.id),
+          has_bookmarked: myBookmarkedIds.has(doc.id),
         }));
-        }
+      }
 
-        setUserDocs(formattedDocs);
+      setUserDocs(formattedDocs);
     }
 
     setLoading(false);
@@ -111,17 +115,16 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   return (
     <main className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
-        
         {/* Nút Quay Lại Trang Chủ */}
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-blue-600 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm transition-colors"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-blue-600 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-xs transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại trang chủ
         </Link>
 
         {/* Card Header Profile Công Khai */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-4">
             <UserAvatar
               src={profile.avatar_url}
@@ -129,20 +132,45 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
               size="lg"
               className="ring-4 ring-blue-50"
             />
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">{profile.full_name || 'Sinh viên TLU'}</h2>
+            <div className="space-y-1">
+              {/* TÊN HỌ + BADGE TÍCH UY TÍN */}
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-slate-900">
+                  {profile.full_name || 'Sinh viên TLU'}
+                </h2>
+                <UserBadge badge={profile.badge} size="md" />
+              </div>
+
               <p className="text-xs text-slate-500">
-                {profile.class_name ? `Lớp ${profile.class_name}` : 'Chưa cập nhật lớp'} • Khoa {profile.faculty || 'CNTT'}
+                {profile.class_name ? `Lớp ${profile.class_name}` : 'Chưa cập nhật lớp'} • Khoa{' '}
+                {profile.faculty || 'CNTT'}
               </p>
               {profile.student_code && (
-                <p className="text-[11px] text-slate-400 font-mono mt-0.5">MSV: {profile.student_code}</p>
+                <p className="text-[11px] text-slate-400 font-mono">MSV: {profile.student_code}</p>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm font-bold">
-            <Coins className="w-5 h-5 text-amber-600" />
-            <span>{profile.points || 0} TLU-Coins</span>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* 💥 NÚT KẾT BẠN */}
+            {currentUserId && (
+              <FriendButton currentUserId={currentUserId} targetUserId={targetUserId} />
+            )}
+
+            {/* 💥 NÚT XEM DANH SÁCH BẠN BÈ CỦA USER NÀY */}
+            <button
+              onClick={() => setIsFriendListOpen(true)}
+              className="px-3 py-2 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 border border-slate-200/80 cursor-pointer"
+            >
+              <Users className="w-4 h-4 text-blue-600" />
+              <span>Danh sách bạn bè</span>
+            </button>
+
+            {/* KHUNG HIỂN THỊ TLU-COINS */}
+            <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm font-bold">
+              <Coins className="w-5 h-5 text-amber-600 animate-bounce" />
+              <span>{profile.points || 0} Coins</span>
+            </div>
           </div>
         </div>
 
@@ -172,6 +200,15 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
           )}
         </div>
       </div>
+
+      {/* MODAL XEM DANH SÁCH BẠN BÈ CỦA USER NÀY */}
+      {profile && (
+        <FriendListModal
+          userId={profile.id}
+          isOpen={isFriendListOpen}
+          onClose={() => setIsFriendListOpen(false)}
+        />
+      )}
     </main>
   );
 }

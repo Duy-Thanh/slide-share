@@ -10,6 +10,7 @@ import UserAvatar from '@/components/user-avatar';
 import FriendButton from '@/components/friend-button';
 import Link from 'next/link';
 import FriendRequestsPopover from '@/components/friend-requests-popover';
+import UserBadge from '@/components/user-badge';
 import {
   Search,
   LogIn,
@@ -22,7 +23,6 @@ import {
   Award,
   TrendingUp,
   BookOpen,
-  Filter,
   X,
 } from 'lucide-react';
 
@@ -219,7 +219,7 @@ export default function HomePage() {
             {/* Nút Toggle Search trên Mobile */}
             <button
               onClick={() => setShowMobileSearch(!showMobileSearch)}
-              className="p-2 text-slate-600 hover:bg-slate-100 rounded-full md:hidden"
+              className="p-2 text-slate-600 hover:bg-slate-100 rounded-full md:hidden cursor-pointer"
               title="Tìm kiếm"
             >
               {showMobileSearch ? <X className="w-5 h-5 text-slate-500" /> : <Search className="w-5 h-5" />}
@@ -233,17 +233,20 @@ export default function HomePage() {
                   <span>{profile.points} <span className="hidden xs:inline">Coins</span></span>
                 </div>
 
-                {/* Avatar */}
-                <Link href="/profile" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
+                {/* Avatar + Tên + UserBadge ở Topbar */}
+                <Link href="/profile" className="flex items-center gap-1.5 hover:opacity-90 transition-opacity">
                   <UserAvatar src={profile.avatar_url} name={profile.full_name} size="md" className="ring-2 ring-blue-500/30" />
-                  <span className="text-xs font-bold text-slate-700 hidden lg:inline">{profile.full_name || 'Sinh viên'}</span>
+                  <div className="hidden lg:flex items-center gap-1">
+                    <span className="text-xs font-bold text-slate-700">{profile.full_name || 'thanhdz167'}</span>
+                    <UserBadge badge={profile.badge} size="sm" />
+                  </div>
                 </Link>
 
                 <FriendRequestsPopover currentUserId={user?.id} />
 
                 <button
                   onClick={() => supabase.auth.signOut()}
-                  className="p-1.5 sm:p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                  className="p-1.5 sm:p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
                   title="Đăng xuất"
                 >
                   <LogOut className="w-4 h-4" />
@@ -252,7 +255,7 @@ export default function HomePage() {
             ) : (
               <button
                 onClick={() => setIsAuthOpen(true)}
-                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <LogIn className="w-4 h-4" /> Đăng nhập
               </button>
@@ -260,7 +263,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 💥 BẬT Ô SEARCH TRÊN MOBILE NẾU BẤM ICON KÍNH LÚP */}
+        {/* Ô SEARCH TRÊN MOBILE NẾU BẤM ICON KÍNH LÚP */}
         {showMobileSearch && (
           <div className="mt-2.5 md:hidden animate-in slide-in-from-top-2 duration-200">
             <div className="relative">
@@ -289,15 +292,18 @@ export default function HomePage() {
       {/* CONTAINER CHÍNH */}
       <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-6 grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6">
         
-        {/* CỘT 1: LEFT SIDEBAR (Hiển thị dạng Drawer/Scroll trên Mobile) */}
+        {/* CỘT 1: LEFT SIDEBAR */}
         <aside className="hidden md:block space-y-4 sticky top-20 h-fit">
           {user && profile && (
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
               <div className="flex items-center gap-3">
                 <UserAvatar src={profile.avatar_url} name={profile.full_name} size="lg" />
                 <div className="truncate">
-                  <p className="font-bold text-sm text-slate-800 truncate">{profile.full_name || 'Sinh viên TLU'}</p>
-                  <p className="text-xs text-slate-500 truncate">{profile.faculty || 'Chưa cập nhật Khoa'}</p>
+                  <div className="flex items-center gap-1 truncate">
+                    <p className="font-bold text-sm text-slate-800 truncate">{profile.full_name || 'Sinh viên TLU'}</p>
+                    <UserBadge badge={profile.badge} size="sm" />
+                  </div>
+                  <p className="text-xs text-slate-500 truncate">{profile.faculty ? `Khoa ${profile.faculty}` : 'Chưa cập nhật Khoa'}</p>
                 </div>
               </div>
 
@@ -320,7 +326,7 @@ export default function HomePage() {
 
             <button
               onClick={() => setActiveTab('newest')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'newest' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -330,7 +336,7 @@ export default function HomePage() {
 
             <button
               onClick={() => setActiveTab('popular')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'popular' ? 'bg-rose-50 text-rose-600' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -340,7 +346,7 @@ export default function HomePage() {
 
             <button
               onClick={() => setActiveTab('bookmarked')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'bookmarked' ? 'bg-amber-50 text-amber-700' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -356,7 +362,7 @@ export default function HomePage() {
                 <button
                   key={fac}
                   onClick={() => setSelectedFaculty(fac)}
-                  className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                     selectedFaculty === fac ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
@@ -370,13 +376,13 @@ export default function HomePage() {
         {/* CỘT 2 & 3: MAIN FEED */}
         <section className="md:col-span-2 space-y-3 sm:space-y-4">
           
-          {/* 💥 DẢI CHỌN KHOA DẠNG NGANG DÀNH RIÊNG CHO MOBILE */}
+          {/* DẢI CHỌN KHOA NGANG MOBILE */}
           <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-medium">
             {['Tất cả', 'CNTT', 'Thủy Lợi', 'Công Trình', 'Kinh Tế', 'Cơ Điện', 'Môi Trường'].map((fac) => (
               <button
                 key={fac}
                 onClick={() => setSelectedFaculty(fac)}
-                className={`px-3 py-1.5 rounded-full whitespace-nowrap text-[11px] font-bold transition-all shrink-0 ${
+                className={`px-3 py-1.5 rounded-full whitespace-nowrap text-[11px] font-bold transition-all shrink-0 cursor-pointer ${
                   selectedFaculty === fac
                     ? 'bg-blue-600 text-white shadow-xs'
                     : 'bg-white border border-slate-200 text-slate-600'
@@ -408,7 +414,7 @@ export default function HomePage() {
                   if (!user) return setIsAuthOpen(true);
                   setIsUploadOpen(true);
                 }}
-                className="flex items-center gap-1.5 sm:gap-2 hover:bg-blue-50 px-2.5 py-1.5 rounded-xl text-blue-600 transition-colors text-[11px] sm:text-xs"
+                className="flex items-center gap-1.5 sm:gap-2 hover:bg-blue-50 px-2.5 py-1.5 rounded-xl text-blue-600 transition-colors text-[11px] sm:text-xs cursor-pointer"
               >
                 <PlusCircle className="w-4 h-4" />
                 <span>Đăng tài liệu</span>
@@ -419,7 +425,7 @@ export default function HomePage() {
                   if (!user) return setIsAuthOpen(true);
                   setIsUploadOpen(true);
                 }}
-                className="flex items-center gap-1.5 sm:gap-2 hover:bg-amber-50 px-2.5 py-1.5 rounded-xl text-amber-600 transition-colors text-[11px] sm:text-xs"
+                className="flex items-center gap-1.5 sm:gap-2 hover:bg-amber-50 px-2.5 py-1.5 rounded-xl text-amber-600 transition-colors text-[11px] sm:text-xs cursor-pointer"
               >
                 <Coins className="w-4 h-4" />
                 <span>Nhận +20 Coins</span>
@@ -427,12 +433,12 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* 💥 BỘ LỌC TABS CÓ THỂ CUỘN NGANG KHÔNG LO DỒN CHỮ */}
+          {/* BỘ LỌC TABS */}
           <div className="flex items-center justify-between bg-white p-1.5 sm:p-2 rounded-2xl border border-slate-200 shadow-xs text-xs font-bold overflow-x-auto no-scrollbar gap-2">
             <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={() => setActiveTab('newest')}
-                className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl transition-all whitespace-nowrap text-[11px] sm:text-xs ${
+                className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl transition-all whitespace-nowrap text-[11px] sm:text-xs cursor-pointer ${
                   activeTab === 'newest' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
@@ -441,7 +447,7 @@ export default function HomePage() {
 
               <button
                 onClick={() => setActiveTab('popular')}
-                className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl transition-all whitespace-nowrap text-[11px] sm:text-xs ${
+                className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl transition-all whitespace-nowrap text-[11px] sm:text-xs cursor-pointer ${
                   activeTab === 'popular' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
@@ -451,7 +457,7 @@ export default function HomePage() {
               {user && (
                 <button
                   onClick={() => setActiveTab('bookmarked')}
-                  className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl transition-all whitespace-nowrap text-[11px] sm:text-xs ${
+                  className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl transition-all whitespace-nowrap text-[11px] sm:text-xs cursor-pointer ${
                     activeTab === 'bookmarked' ? 'bg-amber-500 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
@@ -460,11 +466,10 @@ export default function HomePage() {
               )}
             </div>
 
-            {/* Select Loại Tài Liệu */}
             <select
               value={selectedDocType}
               onChange={(e) => setSelectedDocType(e.target.value)}
-              className="bg-slate-100 px-2 py-1.5 rounded-xl text-[11px] font-bold text-slate-700 outline-none shrink-0"
+              className="bg-slate-100 px-2 py-1.5 rounded-xl text-[11px] font-bold text-slate-700 outline-none shrink-0 cursor-pointer"
             >
               <option value="Tất cả">Tất cả loại</option>
               <option value="Slide">Slide bài giảng</option>
@@ -474,7 +479,7 @@ export default function HomePage() {
             </select>
           </div>
 
-          {/* 💥 HASHTAG MÔN HOT DÀNH CHO MOBILE (Nếu bị giấu Cột 4) */}
+          {/* HASHTAG MÔN HOT MOBILE */}
           {trendingSubjects.length > 0 && (
             <div className="md:hidden bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
               <p className="text-[10px] font-extrabold text-blue-600 uppercase tracking-wider flex items-center gap-1">
@@ -485,7 +490,7 @@ export default function HomePage() {
                   <button
                     key={subject}
                     onClick={() => handleSelectSubject(subject)}
-                    className={`px-2 py-0.5 font-bold text-[10px] rounded-lg transition-all ${
+                    className={`px-2 py-0.5 font-bold text-[10px] rounded-lg transition-all cursor-pointer ${
                       search.toLowerCase() === subject.toLowerCase()
                         ? 'bg-blue-600 text-white'
                         : 'bg-slate-100 text-slate-600'
@@ -520,7 +525,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* CỘT 4: RIGHT SIDEBAR (Desktop) */}
+        {/* CỘT 4: RIGHT SIDEBAR */}
         <aside className="hidden md:block space-y-4 sticky top-20 h-fit">
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <div className="flex items-center gap-2 text-amber-600 font-extrabold text-xs uppercase tracking-wider">
@@ -533,7 +538,7 @@ export default function HomePage() {
                 <div key={userItem.id} className="flex items-center justify-between text-xs group">
                   <Link
                     href={userItem.id === user?.id ? '/profile' : `/profile/${userItem.id}`}
-                    className="flex items-center gap-2.5 truncate flex-1 mr-2"
+                    className="flex items-center gap-2 truncate flex-1 mr-2"
                   >
                     <span
                       className={`w-5 h-5 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 ${
@@ -549,14 +554,18 @@ export default function HomePage() {
                       {idx + 1}
                     </span>
                     <UserAvatar src={userItem.avatar_url} name={userItem.full_name} size="sm" />
-                    <span className="font-bold text-slate-800 truncate group-hover:text-blue-600 transition-colors">
-                      {userItem.full_name || 'Sinh viên TLU'}
-                    </span>
+                    
+                    {/* TÊN + USERBADGE HIỂN THỊ CHUẨN ĐÉT TRONG BXH */}
+                    <div className="flex items-center gap-1 truncate">
+                      <span className="font-bold text-slate-800 truncate group-hover:text-blue-600 transition-colors">
+                        {userItem.full_name || 'Sinh viên TLU'}
+                      </span>
+                      <UserBadge badge={userItem.badge} size="sm" />
+                    </div>
                   </Link>
 
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="font-extrabold text-amber-600 text-[11px]">{userItem.points} 🪙</span>
-                    {/* 💥 Thêm Nút Kết Bạn ở đây */}
                     <FriendButton currentUserId={user?.id} targetUserId={userItem.id} />
                   </div>
                 </div>
@@ -593,7 +602,7 @@ export default function HomePage() {
           </div>
 
           <p className="text-[10px] text-slate-400 text-center font-medium">
-            © 2026{new Date().getFullYear() > 2026 ? ` - ${new Date().getFullYear()}` : ''} CyberDay Studios • Được phát triển cho SV Thủy Lợi
+            © {new Date().getFullYear()} CyberDay Studios • Được phát triển cho SV Thủy Lợi
           </p>
         </aside>
       </div>

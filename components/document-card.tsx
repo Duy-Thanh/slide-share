@@ -9,6 +9,7 @@ import UserAvatar from '@/components/user-avatar';
 import CommentSection from '@/components/comment-section';
 import DocPreviewModal from '@/components/doc-preview-modal';
 import FriendButton from '@/components/friend-button';
+import UserBadge from '@/components/user-badge';
 import Link from 'next/link';
 
 interface Props {
@@ -287,6 +288,7 @@ export default function DocumentCard({
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-5 space-y-4">
       {/* Header Post */}
+      {/* Header Post */}
       <div className="flex justify-between items-start">
         <Link
           href={currentUserId === doc.user_id ? '/profile' : `/profile/${doc.user_id}`}
@@ -299,10 +301,12 @@ export default function DocumentCard({
             className="group-hover:scale-105 transition-transform"
           />
           <div>
-            <h4 className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
-              {doc.profiles?.full_name || 'Sinh viên TLU'}
+            {/* 💥 FIX DÍNH VÀ LỆCH TÍCH BADGE Ở ĐÂY */}
+            <h4 className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors flex items-center gap-1.5">
+              <span className="truncate">{doc.profiles?.full_name || 'Sinh viên TLU'}</span>
+              <UserBadge badge={doc.profiles?.badge} size="sm" />
             </h4>
-            <div className="flex items-center gap-2 text-xs text-slate-400">
+            <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
               <span>{doc.profiles?.faculty || doc.faculty}</span>
               <span>•</span>
               <span title={new Date(doc.created_at).toLocaleString('vi-VN')}>

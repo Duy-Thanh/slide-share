@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { DocumentItem, Profile } from '@/types/database';
 import DocumentCard from '@/components/document-card';
-import { Coins, Folder, Bookmark, User, GraduationCap, Edit3, ArrowLeft, Save, Image as ImageIcon } from 'lucide-react';
+import { Coins, Folder, Bookmark, Edit3, ArrowLeft, Save, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import UserAvatar from '@/components/user-avatar';
 import FriendListModal from '@/components/friend-list-modal';
-import { Users } from 'lucide-react';
+import UserBadge from '@/components/user-badge';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -33,7 +33,6 @@ export default function ProfilePage() {
     fetchProfileData();
   }, []);
 
-  // Trong app/profile/page.tsx:
   const fetchProfileData = async () => {
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
@@ -72,27 +71,27 @@ export default function ProfilePage() {
     const myUpvotedDocIds = new Set(upvotesRes.data?.map((u) => u.document_id) || []);
     const myBookmarkedDocIds = new Set(bookmarksRes.data?.map((b) => b.document_id) || []);
 
-    // 3. Fetch My Documents (Thêm comments(count))
+    // 3. Fetch My Documents
     const { data: docsData } = await supabase
         .from('documents')
-        .select('*, profiles(*), comments(count)') // 💥 Thêm comments(count)
+        .select('*, profiles(*), comments(count)')
         .eq('user_id', uid)
         .order('created_at', { ascending: false });
 
     if (docsData) {
         const formattedMyDocs = docsData.map((doc: any) => ({
         ...doc,
-        comments_count: doc.comments?.[0]?.count || 0, // 💥 Gán số cmt
+        comments_count: doc.comments?.[0]?.count || 0,
         has_upvoted: myUpvotedDocIds.has(doc.id),
         has_bookmarked: myBookmarkedDocIds.has(doc.id),
         }));
         setMyDocs(formattedMyDocs);
     }
 
-    // 4. Fetch Bookmarked Documents (Thêm comments(count))
+    // 4. Fetch Bookmarked Documents
     const { data: bData } = await supabase
         .from('bookmarks')
-        .select('document_id, documents(*, profiles(*), comments(count))') // 💥 Thêm comments(count)
+        .select('document_id, documents(*, profiles(*), comments(count))')
         .eq('user_id', uid);
 
     if (bData) {
@@ -101,7 +100,7 @@ export default function ProfilePage() {
         .filter((doc: any) => doc !== null && doc !== undefined)
         .map((doc: any) => ({
             ...doc,
-            comments_count: doc.comments?.[0]?.count || 0, // 💥 Gán số cmt
+            comments_count: doc.comments?.[0]?.count || 0,
             has_upvoted: myUpvotedDocIds.has(doc.id),
             has_bookmarked: true,
         }));
@@ -110,9 +109,8 @@ export default function ProfilePage() {
     }
 
     setLoading(false);
-    };
+  };
 
-  // Cập nhật TLU-Coins live khi tải/trừ điểm ở trang Profile
   const handlePointsChangeInProfile = (newPoints: number) => {
     if (profile) {
       setProfile({ ...profile, points: newPoints });
@@ -143,13 +141,11 @@ export default function ProfilePage() {
     }
   };
 
-  // Lọc bài viết đã xóa khỏi State Profile
   const handleDeleteInProfile = (docId: string) => {
     setMyDocs((prev) => prev.filter((item) => item.id !== docId));
     setBookmarkedDocs((prev) => prev.filter((item) => item.id !== docId));
   };
 
-  // Xử lý Toggle Bookmark chung cho cả 2 tab ở trang Profile
   const handleToggleBookmarkInProfile = (doc: any, isBookmarked: boolean) => {
     if (isBookmarked) {
       setMyDocs((prev) =>
@@ -184,13 +180,13 @@ export default function ProfilePage() {
         {/* Nút Quay Lại Trang Chủ */}
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-blue-600 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm transition-colors"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-blue-600 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-xs transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại trang chủ
         </Link>
 
         {/* Card Thống Kê Profile */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center gap-4">
               <UserAvatar
@@ -199,27 +195,32 @@ export default function ProfilePage() {
                 size="lg"
                 className="ring-4 ring-blue-50"
               />
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">{profile?.full_name || 'Sinh viên TLU'}</h2>
+              <div className="space-y-1">
+                {/* 💥 BỔ SUNG USERBADGE TÍCH UY TÍN CẠNH TÊN CHÍNH CHỦ */}
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-slate-900">{profile?.full_name || 'Sinh viên TLU'}</h2>
+                  <UserBadge badge={profile?.badge} size="md" />
+                </div>
+                
                 <p className="text-xs text-slate-500">
                   {profile?.class_name ? `Lớp ${profile.class_name}` : 'Chưa cập nhật lớp'} • Khoa {profile?.faculty || 'CNTT'}
                 </p>
                 {profile?.student_code && (
-                  <p className="text-[11px] text-slate-400 font-mono mt-0.5">MSV: {profile.student_code}</p>
+                  <p className="text-[11px] text-slate-400 font-mono">MSV: {profile.student_code}</p>
                 )}
               </div>
             </div>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
               {/* TLU Coins Counter */}
               <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm font-bold">
-                <Coins className="w-5 h-5 text-amber-600" />
+                <Coins className="w-5 h-5 text-amber-600 animate-bounce" />
                 <span>{profile?.points || 0} TLU-Coins</span>
               </div>
 
               <button
                 onClick={() => setIsEditing(!isEditing)}
-                className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5"
+                className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <Edit3 className="w-4 h-4" /> {isEditing ? 'Hủy' : 'Sửa Profile'}
               </button>
@@ -244,7 +245,7 @@ export default function ProfilePage() {
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full px-3 py-1.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                 />
               </div>
 
@@ -255,7 +256,7 @@ export default function ProfilePage() {
                   placeholder="VD: 2151061234"
                   value={studentCode}
                   onChange={(e) => setStudentCode(e.target.value)}
-                  className="w-full px-3 py-1.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                 />
               </div>
 
@@ -264,7 +265,7 @@ export default function ProfilePage() {
                 <select
                   value={faculty}
                   onChange={(e) => setFaculty(e.target.value)}
-                  className="w-full px-2 py-1.5 border rounded-lg text-xs outline-none bg-white"
+                  className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs outline-none bg-white font-medium"
                 >
                   <option value="CNTT">CNTT</option>
                   <option value="Thủy Lợi">Thủy Lợi</option>
@@ -282,7 +283,7 @@ export default function ProfilePage() {
                   placeholder="VD: 63TH1"
                   value={className}
                   onChange={(e) => setClassName(e.target.value)}
-                  className="w-full px-3 py-1.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                 />
               </div>
 
@@ -293,14 +294,14 @@ export default function ProfilePage() {
                   placeholder="https://example.com/my-avatar.jpg"
                   value={avatarUrl}
                   onChange={(e) => setAvatarUrl(e.target.value)}
-                  className="w-full px-3 py-1.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                 />
               </div>
 
               <div className="sm:col-span-2 pt-2">
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl text-xs transition-colors flex items-center gap-1.5"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <Save className="w-4 h-4" /> Lưu thông tin
                 </button>
@@ -313,7 +314,7 @@ export default function ProfilePage() {
         <div className="flex border-b border-slate-200">
           <button
             onClick={() => setActiveTab('my-docs')}
-            className={`pb-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-colors ${
+            className={`pb-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
               activeTab === 'my-docs'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -324,7 +325,7 @@ export default function ProfilePage() {
 
           <button
             onClick={() => setActiveTab('bookmarks')}
-            className={`pb-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-colors ${
+            className={`pb-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
               activeTab === 'bookmarks'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-400 hover:text-slate-600'

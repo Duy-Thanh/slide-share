@@ -7,6 +7,7 @@ import UserAvatar from '@/components/user-avatar';
 import Link from 'next/link';
 import FriendButton from '@/components/friend-button';
 import { Heart, Reply, Send, Trash2, Loader2, AtSign } from 'lucide-react';
+import UserBadge from '@/components/user-badge';
 
 interface Props {
   documentId: string;
@@ -318,6 +319,7 @@ export default function CommentSection({
                         >
                           {parent.profiles?.full_name || 'Sinh viên TLU'}
                         </Link>
+                        <UserBadge badge={parent.profiles?.badge} />
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
@@ -398,6 +400,7 @@ export default function CommentSection({
                               >
                                 {reply.profiles?.full_name || 'Sinh viên TLU'}
                               </Link>
+                              <UserBadge badge={reply.profiles?.badge} />
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0">
