@@ -424,10 +424,15 @@ export default function HomePage() {
 
             <div className="space-y-2.5">
               {topContributors.map((userItem, idx) => (
-                <div key={userItem.id} className="flex items-center justify-between text-xs group">
+                // ✅ MỚI: Bọc bằng thẻ Link để bấm nhảy sang trang profile của user đó
+                <Link
+                  key={userItem.id}
+                  href={userItem.id === user?.id ? '/profile' : `/profile/${userItem.id}`}
+                  className="flex items-center justify-between text-xs group hover:bg-slate-50 p-1.5 -mx-1.5 rounded-xl transition-colors cursor-pointer"
+                >
                   <div className="flex items-center gap-2.5 truncate">
                     <span
-                      className={`w-5 h-5 rounded-full flex items-center justify-center font-black text-[10px] ${
+                      className={`w-5 h-5 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 ${
                         idx === 0
                           ? 'bg-amber-400 text-white'
                           : idx === 1
@@ -445,8 +450,8 @@ export default function HomePage() {
                     </span>
                   </div>
 
-                  <span className="font-extrabold text-amber-600 text-[11px]">{userItem.points} 🪙</span>
-                </div>
+                  <span className="font-extrabold text-amber-600 text-[11px] shrink-0">{userItem.points} 🪙</span>
+                </Link>
               ))}
             </div>
           </div>
