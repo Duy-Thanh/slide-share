@@ -7,7 +7,9 @@ import DocumentCard from '@/components/document-card';
 import AuthModal from '@/components/auth-modal';
 import UploadModal from '@/components/upload-modal';
 import UserAvatar from '@/components/user-avatar';
+import FriendButton from '@/components/friend-button';
 import Link from 'next/link';
+import FriendRequestsPopover from '@/components/friend-requests-popover';
 import {
   Search,
   LogIn,
@@ -236,6 +238,8 @@ export default function HomePage() {
                   <UserAvatar src={profile.avatar_url} name={profile.full_name} size="md" className="ring-2 ring-blue-500/30" />
                   <span className="text-xs font-bold text-slate-700 hidden lg:inline">{profile.full_name || 'Sinh viên'}</span>
                 </Link>
+
+                <FriendRequestsPopover currentUserId={user?.id} />
 
                 <button
                   onClick={() => supabase.auth.signOut()}
@@ -526,12 +530,11 @@ export default function HomePage() {
 
             <div className="space-y-2.5">
               {topContributors.map((userItem, idx) => (
-                <Link
-                  key={userItem.id}
-                  href={userItem.id === user?.id ? '/profile' : `/profile/${userItem.id}`}
-                  className="flex items-center justify-between text-xs group hover:bg-slate-50 p-1.5 -mx-1.5 rounded-xl transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-2.5 truncate">
+                <div key={userItem.id} className="flex items-center justify-between text-xs group">
+                  <Link
+                    href={userItem.id === user?.id ? '/profile' : `/profile/${userItem.id}`}
+                    className="flex items-center gap-2.5 truncate flex-1 mr-2"
+                  >
                     <span
                       className={`w-5 h-5 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 ${
                         idx === 0
@@ -549,10 +552,14 @@ export default function HomePage() {
                     <span className="font-bold text-slate-800 truncate group-hover:text-blue-600 transition-colors">
                       {userItem.full_name || 'Sinh viên TLU'}
                     </span>
-                  </div>
+                  </Link>
 
-                  <span className="font-extrabold text-amber-600 text-[11px] shrink-0">{userItem.points} 🪙</span>
-                </Link>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-extrabold text-amber-600 text-[11px]">{userItem.points} 🪙</span>
+                    {/* 💥 Thêm Nút Kết Bạn ở đây */}
+                    <FriendButton currentUserId={user?.id} targetUserId={userItem.id} />
+                  </div>
+                </div>
               ))}
             </div>
           </div>

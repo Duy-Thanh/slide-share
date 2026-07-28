@@ -8,6 +8,7 @@ import { Heart, Bookmark, Eye, Download, MessageSquare, Send, Trash2, Loader2 } 
 import UserAvatar from '@/components/user-avatar';
 import CommentSection from '@/components/comment-section';
 import DocPreviewModal from '@/components/doc-preview-modal';
+import FriendButton from '@/components/friend-button';
 import Link from 'next/link';
 
 interface Props {
@@ -312,6 +313,7 @@ export default function DocumentCard({
         </Link>
 
         <div className="flex items-center gap-2">
+          <FriendButton currentUserId={currentUserId} targetUserId={doc.user_id} />
           <span className="px-3 py-1 text-xs font-semibold bg-blue-50 text-blue-700 rounded-full">
             {doc.doc_type}
           </span>

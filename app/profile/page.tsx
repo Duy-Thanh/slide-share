@@ -8,6 +8,8 @@ import { Coins, Folder, Bookmark, User, GraduationCap, Edit3, ArrowLeft, Save, I
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import UserAvatar from '@/components/user-avatar';
+import FriendListModal from '@/components/friend-list-modal';
+import { Users } from 'lucide-react';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -17,6 +19,7 @@ export default function ProfilePage() {
   const [bookmarkedDocs, setBookmarkedDocs] = useState<DocumentItem[]>([]);
   const [activeTab, setActiveTab] = useState<'my-docs' | 'bookmarks'>('my-docs');
   const [loading, setLoading] = useState(true);
+  const [isFriendListOpen, setIsFriendListOpen] = useState(false);
 
   // Edit Profile State
   const [isEditing, setIsEditing] = useState(false);
@@ -220,6 +223,14 @@ export default function ProfilePage() {
               >
                 <Edit3 className="w-4 h-4" /> {isEditing ? 'Hủy' : 'Sửa Profile'}
               </button>
+
+              <button
+                onClick={() => setIsFriendListOpen(true)}
+                className="px-4 py-2 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 border border-slate-200/80 shadow-2xs cursor-pointer"
+              >
+                <Users className="w-4 h-4 text-blue-600" />
+                <span>Danh sách bạn bè</span>
+              </button>
             </div>
           </div>
 
@@ -363,6 +374,15 @@ export default function ProfilePage() {
               ))
             )}
           </div>
+        )}
+
+        {/* MODAL DANH SÁCH BẠN BÈ */}
+        {profile && (
+          <FriendListModal
+            userId={profile.id}
+            isOpen={isFriendListOpen}
+            onClose={() => setIsFriendListOpen(false)}
+          />
         )}
       </div>
     </main>
