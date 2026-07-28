@@ -39,6 +39,25 @@ export default function HomePage() {
   const [topContributors, setTopContributors] = useState<Profile[]>([]);
   const [trendingSubjects, setTrendingSubjects] = useState<string[]>([]);
 
+  // Hàm xử lý Toggle Click Hashtag Môn Học
+  const handleSelectSubject = (subject: string) => {
+    // Nếu đang search đúng môn này rồi -> Click lại lần nữa để CLEAR (Huỷ tìm kiếm)
+    if (search.toLowerCase() === subject.toLowerCase()) {
+      setSearch('');
+    } else {
+      // Nếu chưa search môn này -> Fill search + reset lọc
+      setSearch(subject);
+      setActiveTab('newest');
+      setSelectedFaculty('Tất cả');
+
+      // Cuộn mượt lên đầu feed để xem kết quả
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      });
+    }
+  };
+
   const fetchTrendingSubjects = async () => {
     const { data } = await supabase.from('documents').select('subject');
     if (data && data.length > 0) {
@@ -456,6 +475,7 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* WIDGET XU HƯỚNG TÌM KIẾM (CLICK LÀ SEARCH NGAY) */}
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <div className="flex items-center gap-2 text-blue-600 font-extrabold text-xs uppercase tracking-wider">
               <TrendingUp className="w-4 h-4" />
@@ -467,8 +487,12 @@ export default function HomePage() {
                 trendingSubjects.map((subject) => (
                   <button
                     key={subject}
-                    onClick={() => setSearch(subject)}
-                    className="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 font-bold text-[11px] rounded-lg transition-colors cursor-pointer"
+                    onClick={() => handleSelectSubject(subject)}
+                    className={`px-2.5 py-1 font-bold text-[11px] rounded-lg transition-all cursor-pointer ${
+                      search.toLowerCase() === subject.toLowerCase()
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600'
+                    }`}
                   >
                     #{subject}
                   </button>
