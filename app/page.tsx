@@ -504,7 +504,7 @@ export default function HomePage() {
           </div>
 
           <p className="text-[10px] text-slate-400 text-center font-medium">
-            © 2026 TLU Social Network • Được phát triển cho SV Thủy Lợi.
+            © 2026{new Date().getFullYear() > 2026 ? ` - ${new Date().getFullYear()}` : ''} CyberDay Studios • Được phát triển cho SV Thủy Lợi
           </p>
         </aside>
       </div>
