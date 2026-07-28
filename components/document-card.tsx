@@ -264,6 +264,23 @@ export default function DocumentCard({
     return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
   };
 
+  const formatPostTime = (dateStr: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffInSec = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSec < 60) return 'Vừa xong';
+    if (diffInSec < 3600) return `${Math.floor(diffInSec / 60)} phút trước`;
+    if (diffInSec < 86400) return `${Math.floor(diffInSec / 3600)} giờ trước`;
+
+    // Nếu quá 24h thì hiện format Giờ:Phút • Ngày/Tháng/Năm
+    const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    
+    return `${timeStr} • ${dateFormatted}`;
+  };
+
   const isOwner = currentUserId === doc.user_id;
 
   return (
@@ -287,7 +304,9 @@ export default function DocumentCard({
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <span>{doc.profiles?.faculty || doc.faculty}</span>
               <span>•</span>
-              <span>{new Date(doc.created_at).toLocaleDateString('vi-VN')}</span>
+              <span title={new Date(doc.created_at).toLocaleString('vi-VN')}>
+                {formatPostTime(doc.created_at)}
+              </span>
             </div>
           </div>
         </Link>
