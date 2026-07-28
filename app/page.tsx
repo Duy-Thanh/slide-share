@@ -54,6 +54,30 @@ export default function HomePage() {
   const [semester, setSemester] = useState('');
   const [description, setDescription] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [trendingSubjects, setTrendingSubjects] = useState<string[]>([]);
+
+  const fetchTrendingSubjects = async () => {
+    // Lấy danh sách môn học từ bảng documents
+    const { data } = await supabase.from('documents').select('subject');
+
+    if (data && data.length > 0) {
+      // Đếm số lần xuất hiện của từng môn học
+      const counts: Record<string, number> = {};
+      data.forEach((item) => {
+        const subj = item.subject?.trim();
+        if (subj) {
+          counts[subj] = (counts[subj] || 0) + 1;
+        }
+      });
+
+      // Sắp xếp các môn có nhiều tài liệu nhất lên đầu (lấy Top 6)
+      const sortedSubjects = Object.keys(counts)
+        .sort((a, b) => counts[b] - counts[a])
+        .slice(0, 6);
+
+      setTrendingSubjects(sortedSubjects);
+    }
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -71,6 +95,7 @@ export default function HomePage() {
 
     fetchDocuments();
     fetchTopContributors();
+    fetchTrendingSubjects();
     return () => subscription.unsubscribe();
   }, []);
 
@@ -516,23 +541,27 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* WIDGET XU HƯỚNG TÌM KIẾM */}
+          {/* WIDGET XU HƯỚNG TÌM KIẾM (DATA THẬT TỪ SUPABASE) */}
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <div className="flex items-center gap-2 text-blue-600 font-extrabold text-xs uppercase tracking-wider">
               <TrendingUp className="w-4 h-4" />
-              <span>Môn Học Tìm Nhiều</span>
+              <span>Môn Học Phổ Biến</span>
             </div>
 
             <div className="flex flex-wrap gap-1.5">
-              {['An toàn thông tin', 'Thủy văn', 'Cơ kỹ thuật', 'Lập trình Web', 'Giải tích 1', 'Đại số tuyến tính'].map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => setSearch(tag)}
-                  className="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 font-bold text-[11px] rounded-lg transition-colors"
-                >
-                  #{tag}
-                </button>
-              ))}
+              {trendingSubjects.length > 0 ? (
+                trendingSubjects.map((subject) => (
+                  <button
+                    key={subject}
+                    onClick={() => setSearch(subject)}
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 font-bold text-[11px] rounded-lg transition-colors cursor-pointer"
+                  >
+                    #{subject}
+                  </button>
+                ))
+              ) : (
+                <p className="text-[11px] text-slate-400 font-medium">Chưa có dữ liệu môn học.</p>
+              )}
             </div>
           </div>
 
