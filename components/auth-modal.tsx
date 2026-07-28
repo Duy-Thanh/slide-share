@@ -58,7 +58,7 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClos
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              placeholder="vanchau@gmail.com"
+              placeholder="youremail@gmail.com"
             />
           </div>
 

@@ -6,6 +6,7 @@ import { DocumentItem, CommentItem } from '@/types/database';
 import FilePreview from '@/components/file-preview';
 import { Heart, Bookmark, Eye, Download, MessageSquare, Send, Trash2, Loader2 } from 'lucide-react';
 import UserAvatar from '@/components/user-avatar';
+import CommentSection from '@/components/comment-section';
 import Link from 'next/link';
 
 interface Props {
@@ -385,83 +386,11 @@ export default function DocumentCard({
 
       {/* KHUNG THẢO LUẬN / COMMENT SANG XIN CHUẨN MXH */}
       {showComments && (
-        <div className="pt-3 border-t border-slate-100 space-y-3 bg-slate-50/70 p-3.5 rounded-2xl">
-          <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-            {loadingComments ? (
-              <div className="flex items-center justify-center gap-2 text-xs text-slate-400 py-4">
-                <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                <span>Đang tải thảo luận...</span>
-              </div>
-            ) : comments.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-4">
-                Chưa có bình luận nào. Hãy mở bát thảo luận ngay!
-              </p>
-            ) : (
-              comments.map((c) => {
-                const isMyComment = currentUserId === c.user_id;
-                return (
-                  <div key={c.id} className="flex gap-2.5 text-xs group">
-                    <Link href={isMyComment ? '/profile' : `/profile/${c.user_id}`}>
-                      <UserAvatar
-                        src={c.profiles?.avatar_url}
-                        name={c.profiles?.full_name}
-                        size="sm"
-                        className="mt-0.5 hover:scale-105 transition-transform"
-                      />
-                    </Link>
-
-                    <div className="flex-1 bg-white p-2.5 rounded-xl border border-slate-200/60 shadow-none space-y-1">
-                      <div className="flex justify-between items-center">
-                        <Link
-                          href={isMyComment ? '/profile' : `/profile/${c.user_id}`}
-                          className="font-bold text-slate-800 hover:text-blue-600 transition-colors"
-                        >
-                          {c.profiles?.full_name || 'Sinh viên TLU'}
-                        </Link>
-                        
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-slate-400">
-                            {formatCommentTime(c.created_at)}
-                          </span>
-                          {/* Nút Xóa Comment của chính mình */}
-                          {isMyComment && (
-                            <button
-                              onClick={() => handleDeleteComment(c.id)}
-                              className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 transition-all"
-                              title="Xóa bình luận"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-slate-700 leading-relaxed break-words">{c.content}</p>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Form Comment */}
-          <form onSubmit={handleSendComment} className="flex items-center gap-2 pt-1">
-            <input
-              type="text"
-              placeholder={currentUserId ? "Viết bình luận của mày..." : "Đăng nhập để bình luận..."}
-              disabled={!currentUserId || sendingComment}
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              className="flex-1 px-3.5 py-2 text-xs bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 placeholder:text-slate-400"
-            />
-            <button
-              type="submit"
-              disabled={!currentUserId || !newComment.trim() || sendingComment}
-              className="p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-40 flex-shrink-0"
-            >
-              {sendingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            </button>
-          </form>
-        </div>
+        <CommentSection
+          documentId={doc.id}
+          currentUserId={currentUserId}
+          onCommentCountChange={(count) => setCommentsCount(count)}
+        />
       )}
     </div>
   );
