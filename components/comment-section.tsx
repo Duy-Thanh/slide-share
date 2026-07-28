@@ -366,7 +366,7 @@ export default function CommentSection({
 
                 {/* REPLIES THỤT VÀO */}
                 {replies.length > 0 && (
-                  <div className="pl-8 space-y-2 border-l-2 border-slate-200 ml-3">
+                  <div className="pl-6 space-y-2 border-l-2 border-slate-200/80 ml-3 pt-1">
                     {replies.map((reply) => {
                       const isMyReply = currentUserId === reply.user_id;
                       return (
@@ -380,7 +380,7 @@ export default function CommentSection({
                             />
                           </Link>
 
-                          <div className="flex-1 bg-white/80 p-2 rounded-xl border border-slate-200/50 space-y-1">
+                          <div className="flex-1 bg-white/90 p-2.5 rounded-2xl border border-slate-200/60 space-y-1 relative">
                             <div className="flex justify-between items-center">
                               <Link
                                 href={isMyReply ? '/profile' : `/profile/${reply.user_id}`}
@@ -388,18 +388,33 @@ export default function CommentSection({
                               >
                                 {reply.profiles?.full_name || 'Sinh viên TLU'}
                               </Link>
-                              <span className="text-[10px] text-slate-400">{formatTime(reply.created_at)}</span>
+
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-slate-400">{formatTime(reply.created_at)}</span>
+                                
+                                {/* 💥 Nút Xóa Icon Trash2 góc phải, hover mới hiện */}
+                                {isMyReply && (
+                                  <button
+                                    onClick={() => handleDeleteComment(reply.id)}
+                                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 transition-all"
+                                    title="Xóa bình luận"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
 
                             <p className="text-slate-700 leading-relaxed break-words">
-                            <FormattedCommentText
+                              <FormattedCommentText
                                 content={reply.content}
                                 userList={userList}
                                 currentUserId={currentUserId}
-                            />
+                              />
                             </p>
 
-                            <div className="flex items-center gap-3 pt-0.5 text-[10px] text-slate-400">
+                            {/* 💥 Nút Thích & Trả Lời cho Comment Con */}
+                            <div className="flex items-center gap-4 pt-1 text-[11px] text-slate-400 font-medium">
                               <button
                                 onClick={() =>
                                   handleToggleLikeComment(reply.id, reply.has_liked, reply.likes_count)
@@ -409,16 +424,17 @@ export default function CommentSection({
                                 }`}
                               >
                                 <Heart className={`w-3 h-3 ${reply.has_liked ? 'fill-rose-600' : ''}`} />
-                                <span>{reply.likes_count || 0}</span>
+                                <span>{reply.likes_count || 0} Thích</span>
                               </button>
-                              {isMyReply && (
-                                <button
-                                  onClick={() => handleDeleteComment(reply.id)}
-                                  className="hover:text-rose-600 transition-colors"
-                                >
-                                  Xóa
-                                </button>
-                              )}
+
+                              {/* 💥 Nút Trả Lời comment con -> Tag thẳng tên thằng viết reply con */}
+                              <button
+                                onClick={() => handleStartReply(parent)}
+                                className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                              >
+                                <Reply className="w-3 h-3" />
+                                <span>Trả lời</span>
+                              </button>
                             </div>
                           </div>
                         </div>
