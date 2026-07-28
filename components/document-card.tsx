@@ -7,6 +7,7 @@ import FilePreview from '@/components/file-preview';
 import { Heart, Bookmark, Eye, Download, MessageSquare, Send, Trash2, Loader2 } from 'lucide-react';
 import UserAvatar from '@/components/user-avatar';
 import CommentSection from '@/components/comment-section';
+import DocPreviewModal from '@/components/doc-preview-modal';
 import Link from 'next/link';
 
 interface Props {
@@ -39,6 +40,7 @@ export default function DocumentCard({
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
   const [sendingComment, setSendingComment] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   useEffect(() => {
     setUpvoted(doc.has_upvoted || false);
@@ -206,7 +208,7 @@ export default function DocumentCard({
       .update({ downloads_count: (doc.downloads_count || 0) + 1 })
       .eq('id', doc.id);
 
-    const downloadUrl = `/api/file/${doc.file_id}?filename=${encodeURIComponent(doc.file_name)}`;
+    const downloadUrl = `/api/file/${doc.file_id}?filename=${encodeURIComponent(doc.file_name)}&download=true`;
     const a = document.createElement('a');
     a.href = downloadUrl;
     a.download = doc.file_name;
@@ -364,16 +366,16 @@ export default function DocumentCard({
 
         {/* Nút Preview & Download */}
         <div className="flex items-center gap-2">
-          <a
-            href={`/api/file/${doc.file_id}?filename=${encodeURIComponent(doc.file_name)}`}
-            target="_blank"
-            rel="noreferrer"
+          {/* Nút Con Mắt -> Mở Modal Preview */}
+          <button
+            onClick={() => setIsPreviewOpen(true)}
             className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
             title="Xem trực tiếp"
           >
             <Eye className="w-4 h-4" />
-          </a>
+          </button>
 
+          {/* Nút Tải Về (-10đ) */}
           <button
             onClick={handleDownload}
             className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-xl transition-colors flex items-center gap-1.5"
@@ -381,6 +383,15 @@ export default function DocumentCard({
             <Download className="w-3.5 h-3.5" />
             <span>Tải về (-10đ)</span>
           </button>
+
+          {/* Modal Xem Trực Tiếp */}
+          <DocPreviewModal
+            isOpen={isPreviewOpen}
+            onClose={() => setIsPreviewOpen(false)}
+            fileUrl={`/api/file/${doc.file_id}?filename=${encodeURIComponent(doc.file_name)}`}
+            fileName={doc.file_name}
+            onDownload={handleDownload}
+          />
         </div>
       </div>
 

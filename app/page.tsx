@@ -5,8 +5,29 @@ import { supabase } from '@/lib/supabase';
 import { DocumentItem, Profile } from '@/types/database';
 import DocumentCard from '@/components/document-card';
 import AuthModal from '@/components/auth-modal';
-import { Upload, Search, LogIn, LogOut, Coins, PlusCircle, Filter, User } from 'lucide-react';
+import UserAvatar from '@/components/user-avatar';
 import Link from 'next/link';
+import {
+  Upload,
+  Search,
+  LogIn,
+  LogOut,
+  Coins,
+  PlusCircle,
+  Filter,
+  User,
+  Flame,
+  Bookmark,
+  TrendingUp,
+  Award,
+  Sparkles,
+  Layers,
+  BookOpen,
+  GraduationCap,
+  Bell,
+  Clock,
+  CheckCircle2,
+} from 'lucide-react';
 
 export default function HomePage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -14,12 +35,17 @@ export default function HomePage() {
   const [user, setUser] = useState<any>(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
-  // Filter States
+  // States bộ lọc & Tab
   const [search, setSearch] = useState('');
   const [selectedFaculty, setSelectedFaculty] = useState('Tất cả');
   const [selectedDocType, setSelectedDocType] = useState('Tất cả');
+  const [activeTab, setActiveTab] = useState<'newest' | 'popular' | 'bookmarked'>('newest');
+
+  // Top đóng góp
+  const [topContributors, setTopContributors] = useState<Profile[]>([]);
 
   // Form Upload State
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState('');
@@ -35,13 +61,16 @@ export default function HomePage() {
       if (session?.user) fetchProfile(session.user.id);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) fetchProfile(session.user.id);
       else setProfile(null);
     });
 
     fetchDocuments();
+    fetchTopContributors();
     return () => subscription.unsubscribe();
   }, []);
 
@@ -50,25 +79,41 @@ export default function HomePage() {
     if (data) setProfile(data);
   };
 
+  const fetchTopContributors = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('points', { ascending: false })
+      .limit(5);
+    if (data) setTopContributors(data);
+  };
+
   const fetchDocuments = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     const currentUid = session?.user?.id;
 
-    // Query lấy documents + thông tin profiles + ĐẾM SỐ COMMENT (count)
     const { data, error } = await supabase
       .from('documents')
-      .select('*, profiles(*), comments(count)') // 💥 Thêm comments(count) ở đây
+      .select('*, profiles(*), comments(count)')
       .order('created_at', { ascending: false });
 
     if (!error && data) {
       let docsFormatted = data.map((doc: any) => ({
         ...doc,
-        comments_count: doc.comments?.[0]?.count || 0, // 💥 Gán số lượng comment đếm được vào
+        comments_count: doc.comments?.[0]?.count || 0,
       }));
 
       if (currentUid) {
-        const { data: upvotes } = await supabase.from('upvotes').select('document_id').eq('user_id', currentUid);
-        const { data: bookmarks } = await supabase.from('bookmarks').select('document_id').eq('user_id', currentUid);
+        const { data: upvotes } = await supabase
+          .from('upvotes')
+          .select('document_id')
+          .eq('user_id', currentUid);
+        const { data: bookmarks } = await supabase
+          .from('bookmarks')
+          .select('document_id')
+          .eq('user_id', currentUid);
 
         const upvotedDocIds = new Set(upvotes?.map((u) => u.document_id));
         const bookmarkedDocIds = new Set(bookmarks?.map((b) => b.document_id));
@@ -84,14 +129,10 @@ export default function HomePage() {
     }
   };
 
-  // Hàm Cập Nhật TLU-Coins Live Trên Header
   const handlePointsChange = (newPoints: number) => {
-    if (profile) {
-      setProfile({ ...profile, points: newPoints });
-    }
+    if (profile) setProfile({ ...profile, points: newPoints });
   };
 
-  // Hàm Optimistic Delete Bài Viết Ngay Trên Giao Diện Trang Chủ
   const handleDeleteInHome = (docId: string) => {
     setDocuments((prev) => prev.filter((doc) => doc.id !== docId));
   };
@@ -104,7 +145,6 @@ export default function HomePage() {
     setUploading(true);
 
     try {
-      // 1. Upload file lên Telegram qua API Route
       const formData = new FormData();
       formData.append('file', file);
 
@@ -112,7 +152,6 @@ export default function HomePage() {
       const tgData = await res.json();
       if (!res.ok) throw new Error(tgData.error);
 
-      // 2. Direct Insert vào Supabase DB
       const { error: dbError } = await supabase.from('documents').insert([
         {
           title,
@@ -131,131 +170,424 @@ export default function HomePage() {
 
       if (dbError) throw dbError;
 
-      // Cộng +20 điểm TLU-Coins Live
       if (profile) {
         const updatedPoints = (profile.points || 0) + 20;
         await supabase.from('profiles').update({ points: updatedPoints }).eq('id', user.id);
         handlePointsChange(updatedPoints);
       }
-      
-      alert('Đăng tài liệu thành công! Mày được cộng +20 điểm TLU-Coins! 🪙');
 
-      // Reset Form & Fetch lại danh sách
+      alert('Đăng bài thành công! +20 TLU-Coins đã được cộng vào tài khoản! 🎉');
+
       setFile(null);
       setTitle('');
       setSubject('');
       setDescription('');
+      setIsUploadOpen(false);
       fetchDocuments();
+      fetchTopContributors();
     } catch (err: any) {
-      alert('Lỗi: ' + err.message);
+      alert('Lỗi đăng bài: ' + err.message);
     } finally {
       setUploading(false);
     }
   };
 
-  // Filter Logic
-  const filteredDocs = documents.filter((doc) => {
-    const matchSearch =
-      doc.title.toLowerCase().includes(search.toLowerCase()) ||
-      doc.subject.toLowerCase().includes(search.toLowerCase());
-    const matchFaculty = selectedFaculty === 'Tất cả' || doc.faculty === selectedFaculty;
-    const matchType = selectedDocType === 'Tất cả' || doc.doc_type === selectedDocType;
+  // Logic Lọc Bài
+  const filteredDocs = documents
+    .filter((doc) => {
+      const matchSearch =
+        doc.title.toLowerCase().includes(search.toLowerCase()) ||
+        doc.subject.toLowerCase().includes(search.toLowerCase());
+      const matchFaculty = selectedFaculty === 'Tất cả' || doc.faculty === selectedFaculty;
+      const matchType = selectedDocType === 'Tất cả' || doc.doc_type === selectedDocType;
+      const matchBookmarked = activeTab !== 'bookmarked' || doc.has_bookmarked;
 
-    return matchSearch && matchFaculty && matchType;
-  });
+      return matchSearch && matchFaculty && matchType && matchBookmarked;
+    })
+    .sort((a, b) => {
+      if (activeTab === 'popular') return (b.upvotes_count || 0) - (a.upvotes_count || 0);
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        
-        {/* Topbar Navigation */}
-        <header className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-          <div>
-            <div className="flex items-center gap-2 font-black text-2xl text-blue-700 tracking-tight">
-              🎓 TLU Docs
+    <main className="min-h-screen bg-[#f0f2f5] text-slate-800">
+      {/* 🟢 TOPBAR NAVIGATION DẠNG STICKY chuẩn Facebook */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs px-4 py-2.5">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          
+          {/* Logo & Slogan */}
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-10 h-10 bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
+              T
             </div>
-            <p className="text-xs text-slate-500 font-medium hidden sm:block">
-              Mạng xã hội chia sẻ đề thi, slide & đồ án mẫu sinh viên Thủy Lợi
-            </p>
+            <div>
+              <span className="font-extrabold text-xl bg-gradient-to-r from-blue-700 to-indigo-600 bg-clip-text text-transparent tracking-tight">
+                TLU Social
+              </span>
+            </div>
+          </Link>
+
+          {/* Ô Tìm Kiếm Nhanh Trên Header */}
+          <div className="flex-1 max-w-md relative hidden md:block">
+            <Search className="absolute left-3.5 top-2.5 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm môn học, đề thi, giáo trình Thủy Lợi..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-slate-100 border-none rounded-full text-xs outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition-all font-medium"
+            />
           </div>
 
+          {/* Góc Phải: User Profile & Points */}
           <div className="flex items-center gap-3">
             {user && profile ? (
-              <div className="flex items-center gap-3">
-                {/* TLU Coins Counter */}
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-bold">
-                  <Coins className="w-4 h-4 text-amber-600" />
-                  <span>{profile.points} TLU-Coins</span>
+              <>
+                {/* TLU-Coins Badge */}
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-300/60 rounded-full text-amber-700 text-xs font-bold shadow-2xs">
+                  <Coins className="w-4 h-4 text-amber-500 animate-bounce" />
+                  <span>{profile.points} Coins</span>
                 </div>
 
-                {/* Nút vào Profile Cá Nhân */}
-                <Link
-                  href="/profile"
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1.5"
-                >
-                  <User className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Cá nhân</span>
+                {/* Avatar User Link sang Profile */}
+                <Link href="/profile" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
+                  <UserAvatar src={profile.avatar_url} name={profile.full_name} size="md" className="ring-2 ring-blue-500/30" />
+                  <span className="text-xs font-bold text-slate-700 hidden sm:inline">{profile.full_name || 'Sinh viên'}</span>
                 </Link>
 
                 <button
                   onClick={() => supabase.auth.signOut()}
-                  className="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                  title="Đăng xuất"
                 >
-                  Đăng xuất
+                  <LogOut className="w-4 h-4" />
                 </button>
-              </div>
+              </>
             ) : (
               <button
                 onClick={() => setIsAuthOpen(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl text-sm transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center gap-1.5"
               >
-                <LogIn className="w-4 h-4" /> Đăng nhập TLU
+                <LogIn className="w-4 h-4" /> Đăng nhập
               </button>
             )}
           </div>
-        </header>
+        </div>
+      </header>
 
-        {/* Layout Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* 🔴 CONTAINER 3 CỘT chuẩn MXH */}
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-6 grid grid-cols-1 md:grid-cols-4 gap-6">
+        
+        {/* ========================================================= */}
+        {/* CỘT 1 (LEFT SIDEBAR): Menu Lối Tắt & Lọc Nhanh            */}
+        {/* ========================================================= */}
+        <aside className="hidden md:block space-y-4 sticky top-20 h-fit">
+          {/* Card Thông Tin User Nhanh */}
+          {user && profile && (
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+              <div className="flex items-center gap-3">
+                <UserAvatar src={profile.avatar_url} name={profile.full_name} size="lg" />
+                <div className="truncate">
+                  <p className="font-bold text-sm text-slate-800 truncate">{profile.full_name || 'Sinh viên TLU'}</p>
+                  <p className="text-xs text-slate-500 truncate">{profile.faculty || 'Chưa cập nhật Khoa'}</p>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 flex justify-between text-xs text-slate-600 font-semibold">
+                <span>Kho Coins:</span>
+                <span className="text-amber-600 font-bold">{profile.points} 🪙</span>
+              </div>
+
+              <Link
+                href="/profile"
+                className="block text-center w-full py-2 bg-slate-100 hover:bg-blue-50 text-blue-700 font-bold text-xs rounded-xl transition-colors"
+              >
+                Trang cá nhân
+              </Link>
+            </div>
+          )}
+
+          {/* Menu Điều Hướng */}
+          <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-3 py-1">Lối tắt</p>
+
+            <button
+              onClick={() => setActiveTab('newest')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                activeTab === 'newest' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-blue-600" />
+              <span>Bảng tin mới nhất</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('popular')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                activeTab === 'popular' ? 'bg-rose-50 text-rose-600' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Flame className="w-4 h-4 text-rose-500" />
+              <span>Đề thi & Slide Hot</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('bookmarked')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                activeTab === 'bookmarked' ? 'bg-amber-50 text-amber-700' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Bookmark className="w-4 h-4 text-amber-500" />
+              <span>Bài viết đã lưu</span>
+            </button>
+          </div>
+
+          {/* Lọc Theo Khoa */}
+          <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-2">
+            <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-3 py-1">Các Khoa TLU</p>
+            <div className="space-y-1">
+              {['Tất cả', 'CNTT', 'Thủy Lợi', 'Công Trình', 'Kinh Tế', 'Cơ Điện', 'Môi Trường'].map((fac) => (
+                <button
+                  key={fac}
+                  onClick={() => setSelectedFaculty(fac)}
+                  className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    selectedFaculty === fac ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {fac === 'Tất cả' ? '🌐 Tất cả các Khoa' : `🎓 Khoa ${fac}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        {/* ========================================================= */}
+        {/* CỘT 2 & 3 (MAIN FEED): Đăng bài & Dòng Thời Gian            */}
+        {/* ========================================================= */}
+        <section className="md:col-span-2 space-y-4">
           
-          {/* Form Upload Slide / Đề Thi */}
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 h-fit space-y-4">
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <PlusCircle className="w-5 h-5 text-blue-600" /> Chia Sẻ Tài Liệu (+20đ)
-            </h2>
+          {/* 🟢 KHUNG TẠO BÀI VIẾT (Facebook Status Box) */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+            <div className="flex items-center gap-3">
+              <UserAvatar src={profile?.avatar_url} name={profile?.full_name} size="md" />
+              <button
+                onClick={() => {
+                  if (!user) return setIsAuthOpen(true);
+                  setIsUploadOpen(true);
+                }}
+                className="flex-1 text-left px-4 py-2.5 bg-slate-100 hover:bg-slate-200/80 rounded-full text-xs font-medium text-slate-500 transition-colors cursor-pointer"
+              >
+                {user ? `${profile?.full_name || 'Mày'} ơi, chia sẻ slide / đề thi mới đi (+20đ)...` : 'Đăng nhập để đăng đề thi & tích điểm...'}
+              </button>
+            </div>
 
-            <form onSubmit={handleUpload} className="space-y-3">
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-around text-xs font-bold text-slate-600">
+              <button
+                onClick={() => {
+                  if (!user) return setIsAuthOpen(true);
+                  setIsUploadOpen(true);
+                }}
+                className="flex items-center gap-2 hover:bg-blue-50 px-3 py-1.5 rounded-xl text-blue-600 transition-colors"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Đăng tài liệu</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (!user) return setIsAuthOpen(true);
+                  setIsUploadOpen(true);
+                }}
+                className="flex items-center gap-2 hover:bg-amber-50 px-3 py-1.5 rounded-xl text-amber-600 transition-colors"
+              >
+                <Coins className="w-4 h-4" />
+                <span>Nhận +20 Coins</span>
+              </button>
+            </div>
+          </div>
+
+          {/* BỘ LỌC TÀI LIỆU DẠNG TABS */}
+          <div className="flex items-center justify-between bg-white p-2 rounded-2xl border border-slate-200 shadow-xs text-xs font-bold">
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setActiveTab('newest')}
+                className={`px-3 py-1.5 rounded-xl transition-all ${
+                  activeTab === 'newest' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Mới nhất
+              </button>
+
+              <button
+                onClick={() => setActiveTab('popular')}
+                className={`px-3 py-1.5 rounded-xl transition-all ${
+                  activeTab === 'popular' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                🔥 Môn Hot
+              </button>
+
+              {user && (
+                <button
+                  onClick={() => setActiveTab('bookmarked')}
+                  className={`px-3 py-1.5 rounded-xl transition-all ${
+                    activeTab === 'bookmarked' ? 'bg-amber-500 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  Bookmark
+                </button>
+              )}
+            </div>
+
+            {/* Select Loại Tài Liệu */}
+            <select
+              value={selectedDocType}
+              onChange={(e) => setSelectedDocType(e.target.value)}
+              className="bg-slate-100 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-slate-700 outline-none"
+            >
+              <option value="Tất cả">Tất cả loại</option>
+              <option value="Slide">Slide bài giảng</option>
+              <option value="Đề thi">Đề thi / Đáp án</option>
+              <option value="Đồ án">Đồ án mẫu</option>
+              <option value="Đề cương">Đề cương</option>
+            </select>
+          </div>
+
+          {/* 🔴 BẢNG TIN BÀI VIẾT FEED */}
+          <div className="space-y-4">
+            {filteredDocs.map((doc) => (
+              <DocumentCard
+                key={doc.id}
+                doc={doc}
+                currentUserId={user?.id}
+                currentUserPoints={profile?.points || 0}
+                onDelete={handleDeleteInHome}
+                onPointsChange={handlePointsChange}
+              />
+            ))}
+
+            {filteredDocs.length === 0 && (
+              <div className="bg-white text-center py-12 rounded-2xl border border-slate-200 text-slate-400 text-xs font-semibold space-y-2">
+                <BookOpen className="w-8 h-8 mx-auto text-slate-300" />
+                <p>Chưa có tài liệu nào thuộc mục này.</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ========================================================= */}
+        {/* CỘT 4 (RIGHT SIDEBAR): Bảng Xếp Hạng & Xu Hướng Hot        */}
+        {/* ========================================================= */}
+        <aside className="hidden md:block space-y-4 sticky top-20 h-fit">
+          
+          {/* BẢNG XẾP HẠNG TOP CAO THỦ CỐNG HIẾN */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+            <div className="flex items-center gap-2 text-amber-600 font-extrabold text-xs uppercase tracking-wider">
+              <Award className="w-4 h-4 text-amber-500" />
+              <span>Top Đóng Góp TLU</span>
+            </div>
+
+            <div className="space-y-2.5">
+              {topContributors.map((userItem, idx) => (
+                <div key={userItem.id} className="flex items-center justify-between text-xs group">
+                  <div className="flex items-center gap-2.5 truncate">
+                    <span
+                      className={`w-5 h-5 rounded-full flex items-center justify-center font-black text-[10px] ${
+                        idx === 0
+                          ? 'bg-amber-400 text-white'
+                          : idx === 1
+                          ? 'bg-slate-300 text-slate-700'
+                          : idx === 2
+                          ? 'bg-amber-700/60 text-white'
+                          : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {idx + 1}
+                    </span>
+                    <UserAvatar src={userItem.avatar_url} name={userItem.full_name} size="sm" />
+                    <span className="font-bold text-slate-800 truncate group-hover:text-blue-600 transition-colors">
+                      {userItem.full_name || 'Sinh viên TLU'}
+                    </span>
+                  </div>
+
+                  <span className="font-extrabold text-amber-600 text-[11px]">{userItem.points} 🪙</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* WIDGET XU HƯỚNG TÌM KIẾM */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+            <div className="flex items-center gap-2 text-blue-600 font-extrabold text-xs uppercase tracking-wider">
+              <TrendingUp className="w-4 h-4" />
+              <span>Môn Học Tìm Nhiều</span>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              {['An toàn thông tin', 'Thủy văn', 'Cơ kỹ thuật', 'Lập trình Web', 'Giải tích 1', 'Đại số tuyến tính'].map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setSearch(tag)}
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 font-bold text-[11px] rounded-lg transition-colors"
+                >
+                  #{tag}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* FOOTER BẢO QUYỀN */}
+          <p className="text-[10px] text-slate-400 text-center font-medium">
+            © 2026 TLU Social Network • Được phát triển cho SV Thủy Lợi.
+          </p>
+        </aside>
+      </div>
+
+      {/* 🔴 MODAL DẠNG POPUP UPLOAD BÀI VIẾT (Gọn gàng như Facebook status) */}
+      {isUploadOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden space-y-4 p-5">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
+                <PlusCircle className="w-5 h-5 text-blue-600" /> Đăng Bài & Tích Điểm (+20 Coins)
+              </h3>
+              <button onClick={() => setIsUploadOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold">
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpload} className="space-y-3 text-xs">
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Tên tài liệu</label>
+                <label className="block font-bold text-slate-700 mb-1">Tên tài liệu / Tiêu đề bài đăng</label>
                 <input
                   type="text"
                   required
-                  placeholder="VD: Đề thi KTL322 - Cơ học thủy khí"
+                  placeholder="VD: Đề thi KTL322 - Cơ học thủy khí K64"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Môn học</label>
+                  <label className="block font-bold text-slate-700 mb-1">Tên môn học</label>
                   <input
                     type="text"
                     required
                     placeholder="VD: Thủy văn"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Thuộc Khoa</label>
+                  <label className="block font-bold text-slate-700 mb-1">Thuộc Khoa</label>
                   <select
                     value={faculty}
                     onChange={(e) => setFaculty(e.target.value)}
-                    className="w-full px-2 py-2 border rounded-lg text-xs outline-none bg-white"
+                    className="w-full px-2 py-2 border border-slate-200 rounded-xl outline-none bg-white font-medium"
                   >
                     <option value="CNTT">CNTT</option>
                     <option value="Thủy Lợi">Thủy Lợi</option>
@@ -269,11 +601,11 @@ export default function HomePage() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Loại file</label>
+                  <label className="block font-bold text-slate-700 mb-1">Loại tài liệu</label>
                   <select
                     value={docType}
                     onChange={(e) => setDocType(e.target.value as any)}
-                    className="w-full px-2 py-2 border rounded-lg text-xs outline-none bg-white"
+                    className="w-full px-2 py-2 border border-slate-200 rounded-xl outline-none bg-white font-medium"
                   >
                     <option value="Slide">Slide bài giảng</option>
                     <option value="Đề thi">Đề thi / Đáp án</option>
@@ -285,118 +617,59 @@ export default function HomePage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Học kỳ / Khóa</label>
+                  <label className="block font-bold text-slate-700 mb-1">Học kỳ / Khóa</label>
                   <input
                     type="text"
-                    placeholder="VD: K63, HK1 2025"
+                    placeholder="VD: K64, HK2 2026"
                     value={semester}
                     onChange={(e) => setSemester(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Mô tả ngắn</label>
+                <label className="block font-bold text-slate-700 mb-1">Nội dung / Ghi chú</label>
                 <textarea
                   rows={2}
-                  placeholder="Tóm tắt tài liệu..."
+                  placeholder="Viết đôi dòng chia sẻ về tài liệu này..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">File (PDF, Word, Excel, PPTX)</label>
+                <label className="block font-bold text-slate-700 mb-1">Đính kèm file (PDF, Word, Excel, PPTX)</label>
                 <input
                   type="file"
                   required
                   accept=".pdf,.pptx,.ppt,.docx,.doc,.xlsx,.xls"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  className="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                  className="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
                 />
               </div>
 
-              <button
-                type="submit"
-                disabled={uploading || !user}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl text-xs transition-colors disabled:opacity-50"
-              >
-                {uploading ? 'Đang tải lên...' : 'Đăng Bài & Tích Điểm'}
-              </button>
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsUploadOpen(false)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md disabled:opacity-50"
+                >
+                  {uploading ? 'Đang tải lên...' : 'Đăng Bài ngay (+20đ)'}
+                </button>
+              </div>
             </form>
           </div>
-
-          {/* Feed Danh Sách Tài Liệu */}
-          <div className="md:col-span-2 space-y-4">
-            
-            {/* Search & Filter Bar */}
-            <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-              <div className="relative">
-                <Search className="absolute left-3.5 top-2.5 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm môn học, tên đề thi, đồ án..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="flex flex-wrap gap-2 text-xs">
-                {/* Lọc theo Loại */}
-                <select
-                  value={selectedDocType}
-                  onChange={(e) => setSelectedDocType(e.target.value)}
-                  className="px-2.5 py-1.5 bg-slate-100 rounded-lg outline-none font-medium text-slate-600"
-                >
-                  <option value="Tất cả">Tất cả loại tài liệu</option>
-                  <option value="Slide">Slide bài giảng</option>
-                  <option value="Đề thi">Đề thi / Đáp án</option>
-                  <option value="Đồ án">Đồ án mẫu</option>
-                  <option value="Đề cương">Đề cương</option>
-                  <option value="Giáo trình">Giáo trình</option>
-                </select>
-
-                {/* Lọc theo Khoa */}
-                <select
-                  value={selectedFaculty}
-                  onChange={(e) => setSelectedFaculty(e.target.value)}
-                  className="px-2.5 py-1.5 bg-slate-100 rounded-lg outline-none font-medium text-slate-600"
-                >
-                  <option value="Tất cả">Tất cả các Khoa</option>
-                  <option value="CNTT">CNTT</option>
-                  <option value="Thủy Lợi">Thủy Lợi</option>
-                  <option value="Công Trình">Công Trình</option>
-                  <option value="Kinh Tế">Kinh Tế & Quản Lý</option>
-                  <option value="Cơ Điện">Cơ Điện</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Document Cards Feed */}
-            <div className="space-y-4">
-              {filteredDocs.map((doc) => (
-                <DocumentCard
-                  key={doc.id}
-                  doc={doc}
-                  currentUserId={user?.id}
-                  currentUserPoints={profile?.points || 0}
-                  onDelete={handleDeleteInHome}
-                  onPointsChange={handlePointsChange}
-                />
-              ))}
-
-              {filteredDocs.length === 0 && (
-                <div className="bg-white text-center py-12 rounded-2xl border border-slate-200 text-slate-400 text-xs">
-                  Không tìm thấy tài liệu nào phù hợp.
-                </div>
-              )}
-            </div>
-          </div>
         </div>
-      </div>
+      )}
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </main>
