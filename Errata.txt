@@ -1,5 +1,5 @@
-- Chuyển tab (Mới nhất -> Môn hot -> Bookmark -> Mới nhất) document-card lỗi mất state, thử lại thì bảo không thể thả tim
-- Nút Đăng nhập trong modal đăng nhập có bóng đổ không chính xác (màu vàng) khi bấm đăng nhập và hiển thị Đang đăng nhập
-- Infinite scroll có thể bị lỗi không tải đầy đủ các bài viết
-- Không gửi được bình luận: insert or update on table "comments" violates foreign key constraint "comments_document_id_fkey" (trong bảng tin sinh viên)
-- Không thể cập nhật trạng thái lưu! (trong bảng tin sinh viên)
+- Trong tab Bảng tin, khi nhảy qua nhảy lại giữa các tab Bảng tin và kho tài liệu, document-card trong Bảng tin thì có lưu state (việc nút tim sáng đỏ), hai vấn đề xảy ra:
++) Toàn bố số tim, số comment đều hiển thị là 0
++) Trái tim thì vẫn sáng đỏ, nhưng số = 0
++) Trạng thái Bookmark không được lưu lại (nút bookmark không sáng)
++) Lỗi tồn tại ngay cả khi tải lại trang
