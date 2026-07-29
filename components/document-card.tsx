@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { DocumentItem, CommentItem } from '@/types/database';
 import FilePreview from '@/components/file-preview';
-import { Heart, Bookmark, Eye, Download, MessageSquare, Trash2 } from 'lucide-react';
+import { Heart, Bookmark, Eye, Download, MessageSquare, Trash2, Share2 } from 'lucide-react';
 import UserAvatar from '@/components/user-avatar';
 import CommentSection from '@/components/comment-section';
 import DocPreviewModal from '@/components/doc-preview-modal';
@@ -13,7 +13,12 @@ import UserBadge from '@/components/user-badge';
 import Link from 'next/link';
 
 interface Props {
-  doc: DocumentItem;
+  doc: DocumentItem & {
+    post_type?: 'document' | 'post';
+    content?: string; // 💥 Thêm interface content cho post
+    media_urls?: string[];
+    media_type?: 'image' | 'video' | 'none';
+  };
   currentUserId?: string;
   currentUserPoints?: number;
   onRefresh?: () => void;
@@ -44,11 +49,17 @@ export default function DocumentCard({
   const [sendingComment, setSendingComment] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
+  // Phân biệt bài đăng Telegram/Post hay Tài liệu PDF/Word
+  const isPostMedia = doc.post_type === 'post' || (!doc.file_id && doc.media_urls && doc.media_urls.length > 0);
+  const mediaUrls = doc.media_urls || [];
+
+  // FIX LỖI: Lắng nghe thêm `currentUserId` và `doc` toàn diện để reset state khi Đăng xuất / Đăng nhập
   useEffect(() => {
     setUpvoted(doc.has_upvoted || false);
     setUpvoteCount(doc.upvotes_count || 0);
     setBookmarked(doc.has_bookmarked || false);
-  }, [doc.has_upvoted, doc.upvotes_count, doc.has_bookmarked, doc.id]);
+    setCommentsCount(doc.comments_count || 0);
+  }, [doc.has_upvoted, doc.upvotes_count, doc.has_bookmarked, doc.id, doc.comments_count, currentUserId]);
 
   // Xử lý Upvote / Un-upvote
   const handleToggleUpvote = async () => {
@@ -63,12 +74,15 @@ export default function DocumentCard({
     setUpvoted(nextUpvoted);
     setUpvoteCount(nextCount);
 
+    const tableName = isPostMedia ? 'post_upvotes' : 'upvotes';
+    const idKey = isPostMedia ? 'post_id' : 'document_id';
+
     try {
       if (previousUpvoted) {
-        const { error } = await supabase.from('upvotes').delete().match({ user_id: currentUserId, document_id: doc.id });
+        const { error } = await supabase.from(tableName).delete().match({ user_id: currentUserId, [idKey]: doc.id });
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('upvotes').insert({ user_id: currentUserId, document_id: doc.id });
+        const { error } = await supabase.from(tableName).insert({ user_id: currentUserId, [idKey]: doc.id });
         if (error) throw error;
       }
     } catch (err) {
@@ -80,7 +94,7 @@ export default function DocumentCard({
 
   // Xử lý Bookmark
   const handleToggleBookmark = async () => {
-    if (!currentUserId) return alert('Đăng nhập để lưu tài liệu nhé!');
+    if (!currentUserId) return alert('Đăng nhập để lưu bài viết nhé!');
 
     const previousBookmarked = bookmarked;
     const nextBookmarked = !bookmarked;
@@ -88,27 +102,30 @@ export default function DocumentCard({
     setBookmarked(nextBookmarked);
     onToggleBookmark?.(nextBookmarked);
 
+    const tableName = isPostMedia ? 'post_bookmarks' : 'bookmarks';
+    const idKey = isPostMedia ? 'post_id' : 'document_id';
+
     try {
       if (previousBookmarked) {
         const { error } = await supabase
-          .from('bookmarks')
+          .from(tableName)
           .delete()
           .eq('user_id', currentUserId)
-          .eq('document_id', doc.id);
+          .eq(idKey, doc.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
-          .from('bookmarks')
+          .from(tableName)
           .upsert(
-            { user_id: currentUserId, document_id: doc.id },
-            { onConflict: 'user_id,document_id' }
+            { user_id: currentUserId, [idKey]: doc.id },
+            { onConflict: `user_id,${idKey}` }
           );
         if (error) throw error;
       }
-    } catch (err) {
+    } catch (err: any) {
       setBookmarked(previousBookmarked);
       onToggleBookmark?.(previousBookmarked);
-      alert('Không thể cập nhật trạng thái lưu!');
+      alert('Không thể cập nhật trạng thái lưu: ' + err.message);
     }
   };
 
@@ -170,14 +187,13 @@ export default function DocumentCard({
   const handleDeleteComment = async (commentId: string) => {
     if (!confirm('Xóa bình luận này?')) return;
 
-    // Lọc khỏi UI ngay lập tức
     setComments((prev) => prev.filter((c) => c.id !== commentId));
     setCommentsCount((prev) => Math.max(0, prev - 1));
 
     const { error } = await supabase.from('comments').delete().eq('id', commentId);
     if (error) {
       alert('Lỗi xóa bình luận: ' + error.message);
-      fetchComments(); // Fetch lại nếu lỗi
+      fetchComments();
     }
   };
 
@@ -227,7 +243,7 @@ export default function DocumentCard({
   };
 
   const getFileBadge = (fileName: string, fileExt?: string) => {
-    const ext = fileExt || fileName.split('.').pop()?.toLowerCase() || '';
+    const ext = fileExt || fileName?.split('.').pop()?.toLowerCase() || '';
 
     if (['pdf'].includes(ext)) {
       return <span className="px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded font-bold">📄 PDF</span>;
@@ -245,9 +261,10 @@ export default function DocumentCard({
   };
 
   const handleDelete = async () => {
-    if (!confirm('Bạn có chắc muốn xóa tài liệu này không?')) return;
+    if (!confirm('Bạn có chắc muốn xóa bài viết này không?')) return;
     onDelete?.(doc.id);
-    const { error } = await supabase.from('documents').delete().eq('id', doc.id);
+    const tableName = isPostMedia ? 'posts' : 'documents';
+    const { error } = await supabase.from(tableName).delete().eq('id', doc.id);
     if (error) {
       alert('Không xóa được bài viết: ' + error.message);
       onRefresh?.();
@@ -264,7 +281,6 @@ export default function DocumentCard({
     if (diffInSec < 3600) return `${Math.floor(diffInSec / 60)} phút trước`;
     if (diffInSec < 86400) return `${Math.floor(diffInSec / 3600)} giờ trước`;
 
-    // Nếu quá 24h thì hiện format Giờ:Phút • Ngày/Tháng/Năm
     const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     const dateFormatted = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
     
@@ -275,7 +291,7 @@ export default function DocumentCard({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-4 sm:p-5 space-y-4">
-      {/* Header Post (Responsive Chống Tràn) */}
+      {/* Header Post */}
       <div className="flex justify-between items-start gap-2">
         <Link
           href={currentUserId === doc.user_id ? '/profile' : `/profile/${doc.user_id}`}
@@ -288,7 +304,6 @@ export default function DocumentCard({
             className="group-hover:scale-105 transition-transform shrink-0"
           />
           <div className="min-w-0 flex-1">
-            {/* TÊN + TÍCH BADGE KHÔNG BỊ RỚT DÒNG */}
             <h4 className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors flex items-center gap-1.5 min-w-0">
               <span className="truncate">{doc.profiles?.full_name || 'Sinh viên TLU'}</span>
               <UserBadge badge={doc.profiles?.badge} size="sm" />
@@ -306,9 +321,11 @@ export default function DocumentCard({
         {/* Khung nút điều khiển phía bên phải */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <FriendButton currentUserId={currentUserId} targetUserId={doc.user_id} />
-          <span className="hidden xs:inline-block px-2.5 py-1 text-[11px] sm:text-xs font-semibold bg-blue-50 text-blue-700 rounded-full shrink-0">
-            {doc.doc_type}
-          </span>
+          {doc.doc_type && (
+            <span className="hidden xs:inline-block px-2.5 py-1 text-[11px] sm:text-xs font-semibold bg-blue-50 text-blue-700 rounded-full shrink-0">
+              {doc.doc_type}
+            </span>
+          )}
           {isOwner && (
             <button
               onClick={handleDelete}
@@ -323,24 +340,70 @@ export default function DocumentCard({
 
       {/* Title & Detail */}
       <div className="space-y-2">
-        <h3 className="font-bold text-slate-900 text-[15px] sm:text-base line-clamp-2 leading-snug">{doc.title}</h3>
-        <p className="text-xs text-slate-500 line-clamp-2">{doc.description || 'Không có mô tả chi tiết'}</p>
+        {doc.title && (
+          <h3 className="font-bold text-slate-900 text-[15px] sm:text-base line-clamp-2 leading-snug">{doc.title}</h3>
+        )}
 
-        {/* Khung Thông Tin Tags */}
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-1 text-[10px] sm:text-[11px]">
-          {getFileBadge(doc.file_name, doc.file_ext)}
-          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-medium">📖 {doc.subject}</span>
-          {doc.semester && <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-medium">🗓️ {doc.semester}</span>}
-          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-medium">💾 {formatFileSize(doc.file_size)}</span>
-        </div>
+        {/* 💥 FIX: ĐỌC CẢ CONTENT LẪN DESCRIPTION */}
+        {(doc.content || doc.description) && (
+          <p className="text-xs sm:text-sm text-slate-700 whitespace-pre-line leading-relaxed">
+            {doc.content || doc.description}
+          </p>
+        )}
 
-        {/* Preview File */}
-        <div className="pt-2">
-          <FilePreview fileId={doc.file_id} fileName={doc.file_name} fileExt={doc.file_ext} />
-        </div>
+        {/* HIỂN THỊ FILE HỌC TẬP (NẾU CÓ FILE ID) */}
+        {doc.file_id && (
+          <>
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-1 text-[10px] sm:text-[11px]">
+              {getFileBadge(doc.file_name, doc.file_ext)}
+              {doc.subject && <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-medium">📖 {doc.subject}</span>}
+              {doc.semester && <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-medium">🗓️ {doc.semester}</span>}
+              {doc.file_size && <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-medium">💾 {formatFileSize(doc.file_size)}</span>}
+            </div>
+
+            <div className="pt-2">
+              <FilePreview fileId={doc.file_id} fileName={doc.file_name} fileExt={doc.file_ext} />
+            </div>
+          </>
+        )}
+
+        {/* HIỂN THỊ MEDIA TELEGRAM (NẾU LÀ POST STATUS/ANH/VIDEO) */}
+        {mediaUrls.length > 0 && (
+          <div className="pt-2 rounded-xl overflow-hidden border border-slate-200/80 bg-slate-950">
+            {doc.media_type === 'video' ? (
+              <video src={mediaUrls[0]} controls preload="metadata" className="w-full max-h-[450px] object-contain" />
+            ) : (
+              <div
+                className={`grid gap-0.5 ${
+                  mediaUrls.length === 1
+                    ? 'grid-cols-1'
+                    : mediaUrls.length === 2
+                    ? 'grid-cols-2'
+                    : 'grid-cols-2'
+                }`}
+              >
+                {mediaUrls.map((url, idx) => (
+                  <div
+                    key={idx}
+                    className={`relative overflow-hidden bg-slate-100 ${
+                      mediaUrls.length === 3 && idx === 0 ? 'col-span-2 aspect-video' : 'aspect-square'
+                    }`}
+                  >
+                    <img
+                      src={url}
+                      alt="Post media"
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
+                      onClick={() => window.open(url, '_blank')}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Action Bar (Gói gọn, Wrap linh hoạt không tràn nút) */}
+      {/* Action Bar */}
       <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Nút Upvote */}
@@ -378,43 +441,81 @@ export default function DocumentCard({
           </button>
         </div>
 
-        {/* Nút Preview & Download (Luôn dạt sang phải khi wrap) */}
-        <div className="flex items-center gap-1.5 sm:gap-2 ml-auto">
-          {/* Nút Xem Trực Tiếp */}
-          <button
-            onClick={() => setIsPreviewOpen(true)}
-            className="p-1.5 sm:p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-            title="Xem trực tiếp"
-          >
-            <Eye className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-          </button>
+        {/* Nút Preview & Download (Chỉ hiện khi có file học tập) */}
+        {doc.file_id ? (
+          <div className="flex items-center gap-1.5 sm:gap-2 ml-auto">
+            <button
+              onClick={() => setIsPreviewOpen(true)}
+              className="p-1.5 sm:p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+              title="Xem trực tiếp"
+            >
+              <Eye className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+            </button>
 
-          {/* Nút Tải Về */}
-          <button
-            onClick={handleDownload}
-            className="px-2.5 py-1.5 sm:px-3 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-[11px] sm:text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline">Tải về (-10đ)</span>
-            <span className="xs:hidden">Tải về</span>
-          </button>
+            <button
+              onClick={() => {
+                // Lấy origin (ví dụ: http://localhost:3000 hoặc domain chính thức)
+                const baseUrl = window.location.origin;
+                
+                // Tạo link định danh chuẩn cho bài viết / tài liệu
+                const shareUrl = doc.post_type === 'post' 
+                  ? `${baseUrl}/post/${doc.id}` 
+                  : `${baseUrl}/doc/${doc.id}`;
 
-          {/* Modal Xem Trực Tiếp */}
-          <DocPreviewModal
-            isOpen={isPreviewOpen}
-            onClose={() => setIsPreviewOpen(false)}
-            fileUrl={`/api/file/${doc.file_id}?filename=${encodeURIComponent(doc.file_name)}`}
-            fileName={doc.file_name}
-            onDownload={handleDownload}
-          />
-        </div>
+                navigator.clipboard.writeText(shareUrl);
+                alert(`Đã sao chép liên kết bài viết:\n${shareUrl}`);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-slate-500 text-xs font-bold ml-auto"
+            >
+              <Share2 className="w-4 h-4" />
+              <span className="hidden xs:inline">Chia sẻ</span>
+            </button>
+
+            <button
+              onClick={handleDownload}
+              className="px-2.5 py-1.5 sm:px-3 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-[11px] sm:text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">Tải về (-10đ)</span>
+              <span className="xs:hidden">Tải về</span>
+            </button>
+
+            <DocPreviewModal
+              isOpen={isPreviewOpen}
+              onClose={() => setIsPreviewOpen(false)}
+              fileUrl={`/api/file/${doc.file_id}?filename=${encodeURIComponent(doc.file_name)}`}
+              fileName={doc.file_name}
+              onDownload={handleDownload}
+            />
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              // Lấy origin (ví dụ: http://localhost:3000 hoặc domain chính thức)
+              const baseUrl = window.location.origin;
+              
+              // Tạo link định danh chuẩn cho bài viết / tài liệu
+              const shareUrl = doc.post_type === 'post' 
+                ? `${baseUrl}/post/${doc.id}` 
+                : `${baseUrl}/doc/${doc.id}`;
+
+              navigator.clipboard.writeText(shareUrl);
+              alert(`Đã sao chép liên kết bài viết:\n${shareUrl}`);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-slate-500 text-xs font-bold ml-auto"
+          >
+            <Share2 className="w-4 h-4" />
+            <span className="hidden xs:inline">Chia sẻ</span>
+          </button>
+        )}
       </div>
 
       {/* KHUNG THẢO LUẬN / COMMENT */}
       {showComments && (
         <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
           <CommentSection
-            documentId={doc.id}
+            documentId={!isPostMedia ? doc.id : undefined}
+            postId={isPostMedia ? doc.id : undefined}
             currentUserId={currentUserId}
             onCommentCountChange={(count) => setCommentsCount(count)}
           />

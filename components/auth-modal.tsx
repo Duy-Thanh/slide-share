@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { X, Mail, Lock, User, GraduationCap } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 export default function AuthModal({
   isOpen,
@@ -156,9 +157,16 @@ export default function AuthModal({
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-md shadow-blue-500/20 disabled:opacity-50 mt-2 cursor-pointer"
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed disabled:shadow-none"
           >
-            {loading ? 'Đang xử lý...' : isSignUp ? 'Đăng ký nhận +50 Coins' : 'Đăng nhập ngay'}
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>Đang xử lý...</span>
+              </>
+            ) : (
+              <span>{isSignUp ? 'Đăng ký tài khoản' : 'Đăng nhập'}</span>
+            )}
           </button>
         </form>
 

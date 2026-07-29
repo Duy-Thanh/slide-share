@@ -1,3 +1,5 @@
 - Chuyển tab (Mới nhất -> Môn hot -> Bookmark -> Mới nhất) document-card lỗi mất state, thử lại thì bảo không thể thả tim
 - Nút Đăng nhập trong modal đăng nhập có bóng đổ không chính xác (màu vàng) khi bấm đăng nhập và hiển thị Đang đăng nhập
 - Infinite scroll có thể bị lỗi không tải đầy đủ các bài viết
+- Không gửi được bình luận: insert or update on table "comments" violates foreign key constraint "comments_document_id_fkey" (trong bảng tin sinh viên)
+- Không thể cập nhật trạng thái lưu! (trong bảng tin sinh viên)

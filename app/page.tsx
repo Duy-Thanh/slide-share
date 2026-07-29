@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { DocumentItem, Profile } from '@/types/database';
+import { Profile } from '@/types/database';
 import DocumentCard from '@/components/document-card';
 import AuthModal from '@/components/auth-modal';
 import UploadModal from '@/components/upload-modal';
+import CreatePostModal from '@/components/create-post-modal';
 import UserAvatar from '@/components/user-avatar';
 import FriendButton from '@/components/friend-button';
 import Link from 'next/link';
@@ -26,24 +27,39 @@ import {
   BookOpen,
   X,
   Loader2,
+  Image as ImageIcon,
+  MessageSquareText,
 } from 'lucide-react';
 
-const PAGE_SIZE = 10; // Mỗi lần load đúng 10 bài để cứu RAM
+const PAGE_SIZE = 10;
 
 export default function HomePage() {
-  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  // Feed Type: 'docs' hoặc 'social'
+  const [feedType, setFeedType] = useState<'docs' | 'social'>('docs');
+
+  // Feed Data States
+  const [docItems, setDocItems] = useState<any[]>([]);
+  const [postItems, setPostItems] = useState<any[]>([]);
+
   const [profile, setProfile] = useState<Profile | null>(null);
   const [user, setUser] = useState<any>(null);
+
+  // Modals State
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
 
-  // States cho Infinite Scroll
-  const [hasMore, setHasMore] = useState(true);
+  // Infinite Scroll States
+  const [hasMoreDocs, setHasMoreDocs] = useState(true);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
 
-  // Filter States
+  // Ref khóa phanh Observer chống trigger trùng lặp (Infinite Loop Fix)
+  const isFetchingRef = useRef(false);
+
+  // Filter States cho Tab Tài Liệu
   const [search, setSearch] = useState('');
   const [selectedFaculty, setSelectedFaculty] = useState('Tất cả');
   const [selectedDocType, setSelectedDocType] = useState('Tất cả');
@@ -53,22 +69,17 @@ export default function HomePage() {
   const [topContributors, setTopContributors] = useState<Profile[]>([]);
   const [trendingSubjects, setTrendingSubjects] = useState<string[]>([]);
 
-  // Observer Element Ref
   const observerTarget = useRef<HTMLDivElement | null>(null);
 
-  // Handle click Hashtag Môn Học
   const handleSelectSubject = (subject: string) => {
     if (search.toLowerCase() === subject.toLowerCase()) {
       setSearch('');
     } else {
       setSearch(subject);
+      setFeedType('docs');
       setActiveTab('newest');
       setSelectedFaculty('Tất cả');
-
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth',
-      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -122,14 +133,16 @@ export default function HomePage() {
     if (data) setTopContributors(data);
   };
 
-  // 💥 HÀM LOAD BÀI VIẾT PHÂN TRANG (PAGINATION / INFINITE SCROLL)
-  const fetchDocuments = useCallback(
+  // 💥 FETCH TÀI LIỆU HỌC TẬP (DOCS) - FIX CHUẨN 100%
+  const fetchDocs = useCallback(
     async (isFirstLoad = false) => {
-      if (loadingMore || (!hasMore && !isFirstLoad)) return;
+      if (isFetchingRef.current) return;
+      if (!isFirstLoad && !hasMoreDocs) return;
+
+      isFetchingRef.current = true;
 
       if (isFirstLoad) {
-        setInitialLoading(true);
-        setHasMore(true);
+        setHasMoreDocs(true);
       } else {
         setLoadingMore(true);
       }
@@ -139,16 +152,14 @@ export default function HomePage() {
       } = await supabase.auth.getSession();
       const currentUid = session?.user?.id;
 
-      // Xây dựng Query
       let query = supabase
         .from('documents')
         .select('*, profiles(*), comments(count)')
         .order('created_at', { ascending: false });
 
-      // Nếu không phải lần load đầu tiên, lấy bài có created_at nhỏ hơn bài cuối cùng hiện tại
-      if (!isFirstLoad && documents.length > 0) {
-        const lastDocCreatedAt = documents[documents.length - 1].created_at;
-        query = query.lt('created_at', lastDocCreatedAt);
+      if (!isFirstLoad && docItems.length > 0) {
+        const lastCreatedAt = docItems[docItems.length - 1].created_at;
+        query = query.lt('created_at', lastCreatedAt);
       }
 
       query = query.limit(PAGE_SIZE);
@@ -156,17 +167,16 @@ export default function HomePage() {
       const { data, error } = await query;
 
       if (!error && data) {
-        if (data.length < PAGE_SIZE) {
-          setHasMore(false); // Hết bài để load
-        }
+        if (data.length < PAGE_SIZE) setHasMoreDocs(false);
 
-        let docsFormatted = data.map((doc: any) => ({
+        let formattedDocs = data.map((doc: any) => ({
           ...doc,
+          post_type: 'document',
           comments_count: doc.comments?.[0]?.count || 0,
         }));
 
-        if (currentUid && docsFormatted.length > 0) {
-          const docIds = docsFormatted.map((d) => d.id);
+        if (currentUid && formattedDocs.length > 0) {
+          const docIds = formattedDocs.map((d) => d.id);
           const [upvotesRes, bookmarksRes] = await Promise.all([
             supabase.from('upvotes').select('document_id').eq('user_id', currentUid).in('document_id', docIds),
             supabase.from('bookmarks').select('document_id').eq('user_id', currentUid).in('document_id', docIds),
@@ -175,7 +185,7 @@ export default function HomePage() {
           const upvotedDocIds = new Set(upvotesRes.data?.map((u) => u.document_id));
           const bookmarkedDocIds = new Set(bookmarksRes.data?.map((b) => b.document_id));
 
-          docsFormatted = docsFormatted.map((doc) => ({
+          formattedDocs = formattedDocs.map((doc) => ({
             ...doc,
             has_upvoted: upvotedDocIds.has(doc.id),
             has_bookmarked: bookmarkedDocIds.has(doc.id),
@@ -183,64 +193,124 @@ export default function HomePage() {
         }
 
         if (isFirstLoad) {
-          setDocuments(docsFormatted);
+          setDocItems(formattedDocs);
         } else {
-          setDocuments((prev) => [...prev, ...docsFormatted]);
+          setDocItems((prev) => {
+            const existingIds = new Set(prev.map((i) => i.id));
+            const newUnique = formattedDocs.filter((i) => !existingIds.has(i.id));
+            return [...prev, ...newUnique];
+          });
         }
+      } else {
+        if (isFirstLoad) setDocItems([]);
+        setHasMoreDocs(false);
       }
 
       setInitialLoading(false);
       setLoadingMore(false);
+      isFetchingRef.current = false;
     },
-    [documents, loadingMore, hasMore]
+    [docItems, hasMoreDocs]
   );
 
-  // Load trang đầu tiên khi đổi Tab/Filter
-  useEffect(() => {
-    fetchDocuments(true);
-  }, [activeTab, selectedFaculty, selectedDocType]);
+  // 💥 FETCH BẢNG TIN BÀI ĐĂNG (POSTS) - FIX CHUẨN 100%
+  const fetchPosts = useCallback(
+    async (isFirstLoad = false) => {
+      if (isFetchingRef.current) return;
+      if (!isFirstLoad && !hasMorePosts) return;
 
-  // 💥 INTERSECTION OBSERVER BẮT SỰ KIỆN CUỘN XUỐNG ĐÍT TRANG
-  useEffect(() => {
-    const element = observerTarget.current;
-    if (!element) return;
+      isFetchingRef.current = true;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !initialLoading) {
-          fetchDocuments(false);
+      if (isFirstLoad) {
+        setHasMorePosts(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const currentUid = session?.user?.id;
+
+      let query = supabase
+        .from('posts')
+        .select('*, profiles(*), comments(count)')
+        .order('created_at', { ascending: false });
+
+      if (!isFirstLoad && postItems.length > 0) {
+        const lastCreatedAt = postItems[postItems.length - 1].created_at;
+        query = query.lt('created_at', lastCreatedAt);
+      }
+
+      query = query.limit(PAGE_SIZE);
+
+      const { data, error } = await query;
+
+      if (!error && data) {
+        if (data.length < PAGE_SIZE) setHasMorePosts(false);
+
+        let formattedPosts = data.map((post: any) => ({
+          ...post,
+          post_type: 'post',
+          title: '',
+          comments_count: post.comments?.[0]?.count || 0,
+        }));
+
+        if (currentUid && formattedPosts.length > 0) {
+          const postIds = formattedPosts.map((p) => p.id);
+          const { data: postUpvotes } = await supabase
+            .from('post_upvotes')
+            .select('post_id')
+            .eq('user_id', currentUid)
+            .in('post_id', postIds);
+
+          const upvotedPostIds = new Set(postUpvotes?.map((p) => p.post_id));
+
+          formattedPosts = formattedPosts.map((post) => ({
+            ...post,
+            has_upvoted: upvotedPostIds.has(post.id),
+          }));
         }
-      },
-      { threshold: 0.5 }
-    );
 
-    observer.observe(element);
-    return () => {
-      if (element) observer.unobserve(element);
-    };
-  }, [fetchDocuments, hasMore, loadingMore, initialLoading]);
+        if (isFirstLoad) {
+          setPostItems(formattedPosts);
+        } else {
+          setPostItems((prev) => {
+            const existingIds = new Set(prev.map((i) => i.id));
+            const newUnique = formattedPosts.filter((i) => !existingIds.has(i.id));
+            return [...prev, ...newUnique];
+          });
+        }
+      } else {
+        if (isFirstLoad) setPostItems([]);
+        setHasMorePosts(false);
+      }
 
-  const handlePointsChange = (newPoints: number) => {
-    if (profile) setProfile({ ...profile, points: newPoints });
-  };
+      setInitialLoading(false);
+      setLoadingMore(false);
+      isFetchingRef.current = false;
+    },
+    [postItems, hasMorePosts]
+  );
 
-  const handleDeleteInHome = (docId: string) => {
-    setDocuments((prev) => prev.filter((doc) => doc.id !== docId));
-  };
+  // Switch Tab / Filter
+  useEffect(() => {
+    isFetchingRef.current = false;
+    if (feedType === 'docs') {
+      if (docItems.length === 0) setInitialLoading(true);
+      fetchDocs(true);
+    } else {
+      if (postItems.length === 0) setInitialLoading(true);
+      fetchPosts(true);
+    }
+  }, [feedType, activeTab, selectedFaculty, selectedDocType]);
 
-  const handleUploadSuccess = (newPoints: number) => {
-    handlePointsChange(newPoints);
-    fetchDocuments(true);
-    fetchTopContributors();
-    fetchTrendingSubjects();
-  };
-
-  // Filter Client side đối với bài đã load
-  const filteredDocs = documents
+  // Filter cho Tài liệu
+  const filteredDocs = docItems
     .filter((doc) => {
       const matchSearch =
-        doc.title.toLowerCase().includes(search.toLowerCase()) ||
-        doc.subject.toLowerCase().includes(search.toLowerCase());
+        doc.title?.toLowerCase().includes(search.toLowerCase()) ||
+        doc.subject?.toLowerCase().includes(search.toLowerCase());
       const matchFaculty = selectedFaculty === 'Tất cả' || doc.faculty === selectedFaculty;
       const matchType = selectedDocType === 'Tất cả' || doc.doc_type === selectedDocType;
       const matchBookmarked = activeTab !== 'bookmarked' || doc.has_bookmarked;
@@ -252,9 +322,59 @@ export default function HomePage() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
+  const currentHasMore = feedType === 'docs' ? hasMoreDocs : hasMorePosts;
+  const currentFeedList = feedType === 'docs' ? filteredDocs : postItems;
+
+  // OBSERVER CHỦ ĐỘNG KHÓA KHI ĐANG FETCH
+  useEffect(() => {
+    const element = observerTarget.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (
+          entries[0].isIntersecting &&
+          !isFetchingRef.current &&
+          !initialLoading
+        ) {
+          if (feedType === 'docs' && hasMoreDocs) {
+            fetchDocs(false);
+          } else if (feedType === 'social' && hasMorePosts) {
+            fetchPosts(false);
+          }
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' } // Load trước khi chạm đáy 100px
+    );
+
+    observer.observe(element);
+    return () => {
+      if (element) observer.unobserve(element);
+    };
+  }, [feedType, hasMoreDocs, hasMorePosts, initialLoading, fetchDocs, fetchPosts]);
+
+  const handlePointsChange = (newPoints: number) => {
+    if (profile) setProfile({ ...profile, points: newPoints });
+  };
+
+  const handleDeleteInHome = (id: string) => {
+    if (feedType === 'docs') {
+      setDocItems((prev) => prev.filter((item) => item.id !== id));
+    } else {
+      setPostItems((prev) => prev.filter((item) => item.id !== id));
+    }
+  };
+
+  const handleRefreshFeed = () => {
+    if (feedType === 'docs') fetchDocs(true);
+    else fetchPosts(true);
+    fetchTopContributors();
+    fetchTrendingSubjects();
+  };
+
   return (
     <main className="min-h-screen bg-[#f0f2f5] text-slate-800" suppressHydrationWarning>
-      {/* 🟢 TOPBAR NAVIGATION RESPONSIVE */}
+      {/* 🟢 TOPBAR */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs px-2 sm:px-4 py-2">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4">
           <Link href="/" className="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -279,7 +399,6 @@ export default function HomePage() {
             <button
               onClick={() => setShowMobileSearch(!showMobileSearch)}
               className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-full md:hidden cursor-pointer"
-              title="Tìm kiếm"
             >
               {showMobileSearch ? <X className="w-4 h-4 text-slate-500" /> : <Search className="w-4 h-4" />}
             </button>
@@ -305,7 +424,6 @@ export default function HomePage() {
                 <button
                   onClick={() => supabase.auth.signOut()}
                   className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                  title="Đăng xuất"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -334,10 +452,7 @@ export default function HomePage() {
                 className="w-full pl-9 pr-8 py-2 bg-slate-100 border-none rounded-full text-xs outline-none focus:ring-2 focus:ring-blue-500/50 font-medium"
               />
               {search && (
-                <button
-                  onClick={() => setSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
-                >
+                <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold">
                   ✕
                 </button>
               )}
@@ -348,7 +463,6 @@ export default function HomePage() {
 
       {/* CONTAINER CHÍNH */}
       <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-6 grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6 items-start">
-        
         {/* CỘT 1: LEFT SIDEBAR */}
         <aside className="hidden md:block space-y-4 sticky top-20 h-fit">
           {user && profile && (
@@ -369,10 +483,7 @@ export default function HomePage() {
                 <span className="text-amber-600 font-bold">{profile.points} 🪙</span>
               </div>
 
-              <Link
-                href="/profile"
-                className="block text-center w-full py-2 bg-slate-100 hover:bg-blue-50 text-blue-700 font-bold text-xs rounded-xl transition-colors"
-              >
+              <Link href="/profile" className="block text-center w-full py-2 bg-slate-100 hover:bg-blue-50 text-blue-700 font-bold text-xs rounded-xl transition-colors">
                 Trang cá nhân
               </Link>
             </div>
@@ -380,11 +491,13 @@ export default function HomePage() {
 
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
             <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-1">Lối tắt</p>
-
             <button
-              onClick={() => setActiveTab('newest')}
+              onClick={() => {
+                setFeedType('docs');
+                setActiveTab('newest');
+              }}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'newest' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'
+                feedType === 'docs' && activeTab === 'newest' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
               <Sparkles className="w-4 h-4 text-blue-600" />
@@ -392,9 +505,12 @@ export default function HomePage() {
             </button>
 
             <button
-              onClick={() => setActiveTab('popular')}
+              onClick={() => {
+                setFeedType('docs');
+                setActiveTab('popular');
+              }}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'popular' ? 'bg-rose-50 text-rose-600' : 'text-slate-600 hover:bg-slate-50'
+                feedType === 'docs' && activeTab === 'popular' ? 'bg-rose-50 text-rose-600' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
               <Flame className="w-4 h-4 text-rose-500" />
@@ -402,9 +518,12 @@ export default function HomePage() {
             </button>
 
             <button
-              onClick={() => setActiveTab('bookmarked')}
+              onClick={() => {
+                setFeedType('docs');
+                setActiveTab('bookmarked');
+              }}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'bookmarked' ? 'bg-amber-50 text-amber-700' : 'text-slate-600 hover:bg-slate-50'
+                feedType === 'docs' && activeTab === 'bookmarked' ? 'bg-amber-50 text-amber-700' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
               <Bookmark className="w-4 h-4 text-amber-500" />
@@ -418,9 +537,12 @@ export default function HomePage() {
               {['Tất cả', 'CNTT', 'Thủy Lợi', 'Công Trình', 'Kinh Tế', 'Cơ Điện', 'Môi Trường'].map((fac) => (
                 <button
                   key={fac}
-                  onClick={() => setSelectedFaculty(fac)}
+                  onClick={() => {
+                    setFeedType('docs');
+                    setSelectedFaculty(fac);
+                  }}
                   className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                    selectedFaculty === fac ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                    feedType === 'docs' && selectedFaculty === fac ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
                   {fac === 'Tất cả' ? '🌐 Tất cả các Khoa' : `🎓 Khoa ${fac}`}
@@ -432,16 +554,39 @@ export default function HomePage() {
 
         {/* CỘT 2 & 3: MAIN FEED */}
         <section className="md:col-span-2 space-y-4 min-w-0">
-          
+          {/* TAB CHÍNH */}
+          <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-1 font-bold text-xs">
+            <button
+              onClick={() => setFeedType('docs')}
+              className={`flex-1 py-2 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                feedType === 'docs' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>📚 Kho Tài Liệu TLU</span>
+            </button>
+
+            <button
+              onClick={() => setFeedType('social')}
+              className={`flex-1 py-2 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                feedType === 'social' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <MessageSquareText className="w-4 h-4" />
+              <span>💬 Bảng Tin Sinh Viên</span>
+            </button>
+          </div>
+
           <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-medium">
             {['Tất cả', 'CNTT', 'Thủy Lợi', 'Công Trình', 'Kinh Tế', 'Cơ Điện', 'Môi Trường'].map((fac) => (
               <button
                 key={fac}
-                onClick={() => setSelectedFaculty(fac)}
+                onClick={() => {
+                  setFeedType('docs');
+                  setSelectedFaculty(fac);
+                }}
                 className={`px-3 py-1.5 rounded-full whitespace-nowrap text-[11px] font-bold transition-all shrink-0 cursor-pointer ${
-                  selectedFaculty === fac
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-white border border-slate-200 text-slate-600'
+                  selectedFaculty === fac ? 'bg-blue-600 text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600'
                 }`}
               >
                 {fac === 'Tất cả' ? '🌐 Tất cả Khoa' : fac}
@@ -456,11 +601,16 @@ export default function HomePage() {
               <button
                 onClick={() => {
                   if (!user) return setIsAuthOpen(true);
-                  setIsUploadOpen(true);
+                  if (feedType === 'social') setIsCreatePostOpen(true);
+                  else setIsUploadOpen(true);
                 }}
                 className="flex-1 text-left px-4 py-2.5 bg-slate-100 hover:bg-slate-200/80 rounded-full text-xs font-medium text-slate-500 transition-colors cursor-pointer truncate"
               >
-                {user ? `${profile?.full_name || 'Bạn'} ơi, chia sẻ để tích điểm nhé!` : 'Đăng nhập để đăng đề thi & tích điểm...'}
+                {user
+                  ? feedType === 'social'
+                    ? `${profile?.full_name || 'Mày'} ơi, hôm nay có gì vui không? Đăng bài đi...`
+                    : `${profile?.full_name || 'Mày'} ơi, chia sẻ slide / đề thi (+20đ)...`
+                  : 'Đăng nhập để đăng bài & chia sẻ...'}
               </button>
             </div>
 
@@ -468,12 +618,12 @@ export default function HomePage() {
               <button
                 onClick={() => {
                   if (!user) return setIsAuthOpen(true);
-                  setIsUploadOpen(true);
+                  setIsCreatePostOpen(true);
                 }}
-                className="flex items-center gap-2 hover:bg-blue-50 px-3 py-1.5 rounded-xl text-blue-600 transition-colors cursor-pointer"
+                className="flex items-center gap-2 hover:bg-indigo-50 px-3 py-1.5 rounded-xl text-indigo-600 transition-colors cursor-pointer"
               >
-                <PlusCircle className="w-4 h-4 shrink-0" />
-                <span>Đăng tài liệu</span>
+                <ImageIcon className="w-4 h-4 text-indigo-500" />
+                <span>Đăng bài & Ảnh/Video</span>
               </button>
 
               <button
@@ -481,72 +631,74 @@ export default function HomePage() {
                   if (!user) return setIsAuthOpen(true);
                   setIsUploadOpen(true);
                 }}
-                className="flex items-center gap-2 hover:bg-amber-50 px-3 py-1.5 rounded-xl text-amber-600 transition-colors cursor-pointer"
+                className="flex items-center gap-2 hover:bg-blue-50 px-3 py-1.5 rounded-xl text-blue-600 transition-colors cursor-pointer"
               >
-                <Coins className="w-4 h-4 shrink-0" />
-                <span>Nhận +20 Coins</span>
+                <PlusCircle className="w-4 h-4 text-blue-600 shrink-0" />
+                <span>Đăng tài liệu (+20đ)</span>
               </button>
             </div>
           </div>
 
-          {/* BỘ LỌC TABS */}
-          <div className="flex items-center justify-between bg-white p-2 rounded-2xl border border-slate-200 shadow-xs text-xs font-bold overflow-x-auto no-scrollbar gap-2">
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                onClick={() => setActiveTab('newest')}
-                className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap text-xs cursor-pointer ${
-                  activeTab === 'newest' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                Mới nhất
-              </button>
-
-              <button
-                onClick={() => setActiveTab('popular')}
-                className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap text-xs cursor-pointer ${
-                  activeTab === 'popular' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                🔥 Môn Hot
-              </button>
-
-              {user && (
+          {/* BỘ LỌC TABS (CHỈ HIỆN KHI Ở TAB TÀI LIỆU) */}
+          {feedType === 'docs' && (
+            <div className="flex items-center justify-between bg-white p-2 rounded-2xl border border-slate-200 shadow-xs text-xs font-bold overflow-x-auto no-scrollbar gap-2">
+              <div className="flex items-center gap-1 shrink-0">
                 <button
-                  onClick={() => setActiveTab('bookmarked')}
+                  onClick={() => setActiveTab('newest')}
                   className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap text-xs cursor-pointer ${
-                    activeTab === 'bookmarked' ? 'bg-amber-500 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                    activeTab === 'newest' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
-                  Bookmark
+                  Mới nhất
                 </button>
-              )}
+
+                <button
+                  onClick={() => setActiveTab('popular')}
+                  className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap text-xs cursor-pointer ${
+                    activeTab === 'popular' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  🔥 Môn Hot
+                </button>
+
+                {user && (
+                  <button
+                    onClick={() => setActiveTab('bookmarked')}
+                    className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap text-xs cursor-pointer ${
+                      activeTab === 'bookmarked' ? 'bg-amber-500 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    Bookmark
+                  </button>
+                )}
+              </div>
+
+              <select
+                value={selectedDocType}
+                onChange={(e) => setSelectedDocType(e.target.value)}
+                className="bg-slate-100 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 outline-none shrink-0 cursor-pointer"
+              >
+                <option value="Tất cả">Tất cả loại tài liệu</option>
+                <option value="Slide">Slide bài giảng</option>
+                <option value="Đề thi">Đề thi / Đáp án</option>
+                <option value="Đồ án">Đồ án mẫu</option>
+                <option value="Đề cương">Đề cương</option>
+              </select>
             </div>
+          )}
 
-            <select
-              value={selectedDocType}
-              onChange={(e) => setSelectedDocType(e.target.value)}
-              className="bg-slate-100 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 outline-none shrink-0 cursor-pointer"
-            >
-              <option value="Tất cả">Tất cả loại tài liệu</option>
-              <option value="Slide">Slide bài giảng</option>
-              <option value="Đề thi">Đề thi / Đáp án</option>
-              <option value="Đồ án">Đồ án mẫu</option>
-              <option value="Đề cương">Đề cương</option>
-            </select>
-          </div>
-
-          {/* BẢNG TIN BÀI VIẾT FEED */}
+          {/* FEED HÀNG HÓA */}
           <div className="space-y-4">
             {initialLoading ? (
               <div className="bg-white text-center py-12 rounded-2xl border border-slate-200 text-slate-400 text-xs font-semibold flex items-center justify-center gap-2">
                 <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                <span>Đang tải bảng tin...</span>
+                <span>Đang tải bài viết...</span>
               </div>
             ) : (
-              filteredDocs.map((doc) => (
+              currentFeedList.map((item, idx) => (
                 <DocumentCard
-                  key={doc.id}
-                  doc={doc}
+                  key={`${item.post_type || 'item'}-${item.id}-${idx}`}
+                  doc={item}
                   currentUserId={user?.id}
                   currentUserPoints={profile?.points || 0}
                   onDelete={handleDeleteInHome}
@@ -555,23 +707,23 @@ export default function HomePage() {
               ))
             )}
 
-            {!initialLoading && filteredDocs.length === 0 && (
+            {!initialLoading && currentFeedList.length === 0 && (
               <div className="bg-white text-center py-12 rounded-2xl border border-slate-200 text-slate-400 text-xs font-semibold space-y-2">
                 <BookOpen className="w-8 h-8 mx-auto text-slate-300" />
-                <p>Chưa có tài liệu nào thuộc mục này.</p>
+                <p>{feedType === 'docs' ? 'Chưa có tài liệu nào thuộc mục này.' : 'Chưa có bài viết chém gió nào.'}</p>
               </div>
             )}
 
-            {/* 💥 VÙNG OBSERVER BẮT SỰ KIỆN SCROLL ĐỂ LOAD THÊM 10 BÀI */}
-            <div ref={observerTarget} className="py-4 text-center">
+            {/* OBSERVER LOAD MORE */}
+            <div ref={observerTarget} className="py-4 text-center min-h-[40px]">
               {loadingMore && (
                 <div className="flex items-center justify-center gap-2 text-xs font-bold text-slate-500">
                   <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                  <span>Đang tải thêm bài viết...</span>
+                  <span>Đang tải thêm...</span>
                 </div>
               )}
-              {!hasMore && documents.length > 0 && (
-                <p className="text-[11px] text-slate-400 font-semibold">🎉 Đã tải hết bài viết rồi con vợ!</p>
+              {!currentHasMore && currentFeedList.length > 0 && (
+                <p className="text-[11px] text-slate-400 font-semibold">🎉 Đã hiển thị toàn bộ bài viết mục này!</p>
               )}
             </div>
           </div>
@@ -652,19 +804,29 @@ export default function HomePage() {
           </div>
 
           <p className="text-[10px] text-slate-400 text-center font-medium">
-            © {new Date().getFullYear()} CyberDay Studios Publishing • All right reserved
+            © {new Date().getFullYear()} CyberDay Studios • Được phát triển cho SV Thủy Lợi
           </p>
         </aside>
       </div>
 
+      {/* MODALS */}
       {user && (
-        <UploadModal
-          isOpen={isUploadOpen}
-          onClose={() => setIsUploadOpen(false)}
-          userId={user.id}
-          userPoints={profile?.points || 0}
-          onUploadSuccess={handleUploadSuccess}
-        />
+        <>
+          <UploadModal
+            isOpen={isUploadOpen}
+            onClose={() => setIsUploadOpen(false)}
+            userId={user.id}
+            userPoints={profile?.points || 0}
+            onUploadSuccess={handleRefreshFeed}
+          />
+
+          <CreatePostModal
+            isOpen={isCreatePostOpen}
+            onClose={() => setIsCreatePostOpen(false)}
+            userId={user.id}
+            onPostSuccess={handleRefreshFeed}
+          />
+        </>
       )}
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
