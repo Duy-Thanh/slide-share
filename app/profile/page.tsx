@@ -341,7 +341,7 @@ export default function ProfilePage() {
         {activeTab === 'my-docs' && (
           <div className="space-y-3 sm:space-y-4">
             {myDocs.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-8">Ơ, chưa có gì ở đây hết!</p>
+              <p className="text-sm text-slate-400 text-center py-8">Ơ, chưa có gì ở đây hết! Bạn đã đăng gì chưa?</p>
             ) : (
               myDocs.map((doc) => (
                 <DocumentCard
