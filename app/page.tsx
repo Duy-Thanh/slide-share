@@ -563,7 +563,7 @@ export default function HomePage() {
               }`}
             >
               <BookOpen className="w-4 h-4" />
-              <span>📚 Kho Tài Liệu TLU</span>
+              <span>Kho tài liệu</span>
             </button>
 
             <button
@@ -573,7 +573,7 @@ export default function HomePage() {
               }`}
             >
               <MessageSquareText className="w-4 h-4" />
-              <span>💬 Bảng Tin Sinh Viên</span>
+              <span>Bảng tin</span>
             </button>
           </div>
 
