@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { DocumentItem, Profile } from '@/types/database';
 import DocumentCard from '@/components/document-card';
@@ -25,7 +25,10 @@ import {
   TrendingUp,
   BookOpen,
   X,
+  Loader2,
 } from 'lucide-react';
+
+const PAGE_SIZE = 10; // Mỗi lần load đúng 10 bài để cứu RAM
 
 export default function HomePage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -34,6 +37,11 @@ export default function HomePage() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
+
+  // States cho Infinite Scroll
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   // Filter States
   const [search, setSearch] = useState('');
@@ -45,7 +53,10 @@ export default function HomePage() {
   const [topContributors, setTopContributors] = useState<Profile[]>([]);
   const [trendingSubjects, setTrendingSubjects] = useState<string[]>([]);
 
-  // Hàm xử lý Toggle Click Hashtag Môn Học
+  // Observer Element Ref
+  const observerTarget = useRef<HTMLDivElement | null>(null);
+
+  // Handle click Hashtag Môn Học
   const handleSelectSubject = (subject: string) => {
     if (search.toLowerCase() === subject.toLowerCase()) {
       setSearch('');
@@ -92,7 +103,6 @@ export default function HomePage() {
       else setProfile(null);
     });
 
-    fetchDocuments();
     fetchTopContributors();
     fetchTrendingSubjects();
     return () => subscription.unsubscribe();
@@ -112,46 +122,103 @@ export default function HomePage() {
     if (data) setTopContributors(data);
   };
 
-  const fetchDocuments = async () => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const currentUid = session?.user?.id;
+  // 💥 HÀM LOAD BÀI VIẾT PHÂN TRANG (PAGINATION / INFINITE SCROLL)
+  const fetchDocuments = useCallback(
+    async (isFirstLoad = false) => {
+      if (loadingMore || (!hasMore && !isFirstLoad)) return;
 
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*, profiles(*), comments(count)')
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
-      let docsFormatted = data.map((doc: any) => ({
-        ...doc,
-        comments_count: doc.comments?.[0]?.count || 0,
-      }));
-
-      if (currentUid) {
-        const { data: upvotes } = await supabase
-          .from('upvotes')
-          .select('document_id')
-          .eq('user_id', currentUid);
-        const { data: bookmarks } = await supabase
-          .from('bookmarks')
-          .select('document_id')
-          .eq('user_id', currentUid);
-
-        const upvotedDocIds = new Set(upvotes?.map((u) => u.document_id));
-        const bookmarkedDocIds = new Set(bookmarks?.map((b) => b.document_id));
-
-        docsFormatted = docsFormatted.map((doc) => ({
-          ...doc,
-          has_upvoted: upvotedDocIds.has(doc.id),
-          has_bookmarked: bookmarkedDocIds.has(doc.id),
-        }));
+      if (isFirstLoad) {
+        setInitialLoading(true);
+        setHasMore(true);
+      } else {
+        setLoadingMore(true);
       }
 
-      setDocuments(docsFormatted);
-    }
-  };
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const currentUid = session?.user?.id;
+
+      // Xây dựng Query
+      let query = supabase
+        .from('documents')
+        .select('*, profiles(*), comments(count)')
+        .order('created_at', { ascending: false });
+
+      // Nếu không phải lần load đầu tiên, lấy bài có created_at nhỏ hơn bài cuối cùng hiện tại
+      if (!isFirstLoad && documents.length > 0) {
+        const lastDocCreatedAt = documents[documents.length - 1].created_at;
+        query = query.lt('created_at', lastDocCreatedAt);
+      }
+
+      query = query.limit(PAGE_SIZE);
+
+      const { data, error } = await query;
+
+      if (!error && data) {
+        if (data.length < PAGE_SIZE) {
+          setHasMore(false); // Hết bài để load
+        }
+
+        let docsFormatted = data.map((doc: any) => ({
+          ...doc,
+          comments_count: doc.comments?.[0]?.count || 0,
+        }));
+
+        if (currentUid && docsFormatted.length > 0) {
+          const docIds = docsFormatted.map((d) => d.id);
+          const [upvotesRes, bookmarksRes] = await Promise.all([
+            supabase.from('upvotes').select('document_id').eq('user_id', currentUid).in('document_id', docIds),
+            supabase.from('bookmarks').select('document_id').eq('user_id', currentUid).in('document_id', docIds),
+          ]);
+
+          const upvotedDocIds = new Set(upvotesRes.data?.map((u) => u.document_id));
+          const bookmarkedDocIds = new Set(bookmarksRes.data?.map((b) => b.document_id));
+
+          docsFormatted = docsFormatted.map((doc) => ({
+            ...doc,
+            has_upvoted: upvotedDocIds.has(doc.id),
+            has_bookmarked: bookmarkedDocIds.has(doc.id),
+          }));
+        }
+
+        if (isFirstLoad) {
+          setDocuments(docsFormatted);
+        } else {
+          setDocuments((prev) => [...prev, ...docsFormatted]);
+        }
+      }
+
+      setInitialLoading(false);
+      setLoadingMore(false);
+    },
+    [documents, loadingMore, hasMore]
+  );
+
+  // Load trang đầu tiên khi đổi Tab/Filter
+  useEffect(() => {
+    fetchDocuments(true);
+  }, [activeTab, selectedFaculty, selectedDocType]);
+
+  // 💥 INTERSECTION OBSERVER BẮT SỰ KIỆN CUỘN XUỐNG ĐÍT TRANG
+  useEffect(() => {
+    const element = observerTarget.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !initialLoading) {
+          fetchDocuments(false);
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    observer.observe(element);
+    return () => {
+      if (element) observer.unobserve(element);
+    };
+  }, [fetchDocuments, hasMore, loadingMore, initialLoading]);
 
   const handlePointsChange = (newPoints: number) => {
     if (profile) setProfile({ ...profile, points: newPoints });
@@ -163,12 +230,12 @@ export default function HomePage() {
 
   const handleUploadSuccess = (newPoints: number) => {
     handlePointsChange(newPoints);
-    fetchDocuments();
+    fetchDocuments(true);
     fetchTopContributors();
     fetchTrendingSubjects();
   };
 
-  // Filter Logic
+  // Filter Client side đối với bài đã load
   const filteredDocs = documents
     .filter((doc) => {
       const matchSearch =
@@ -190,20 +257,13 @@ export default function HomePage() {
       {/* 🟢 TOPBAR NAVIGATION RESPONSIVE */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs px-2 sm:px-4 py-2">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4">
-          
-          {/* Logo */}
           <Link href="/" className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <img
-              src="/logo-tlu.png"
-              alt="TLU Logo"
-              className="h-7 sm:h-9 w-auto object-contain"
-            />
+            <img src="/logo-tlu.png" alt="TLU Logo" className="h-7 sm:h-9 w-auto object-contain" />
             <span className="font-extrabold text-base sm:text-xl bg-gradient-to-r from-blue-700 to-indigo-600 bg-clip-text text-transparent tracking-tight hidden xs:inline">
               TLU Social
             </span>
           </Link>
 
-          {/* Ô Tìm Kiếm Desktop */}
           <div className="flex-1 max-w-md relative hidden md:block">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <input
@@ -215,9 +275,7 @@ export default function HomePage() {
             />
           </div>
 
-          {/* Góc Phải Header */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            {/* Nút Toggle Search trên Mobile */}
             <button
               onClick={() => setShowMobileSearch(!showMobileSearch)}
               className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-full md:hidden cursor-pointer"
@@ -228,13 +286,11 @@ export default function HomePage() {
 
             {user && profile ? (
               <>
-                {/* TLU-Coins Badge */}
                 <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-300/60 rounded-full text-amber-700 text-[11px] font-bold">
                   <Coins className="w-3.5 h-3.5 text-amber-500 animate-bounce shrink-0" />
                   <span>{profile.points}</span>
                 </div>
 
-                {/* Avatar + Tên + UserBadge ở Topbar */}
                 <Link href="/profile" className="flex items-center gap-1 hover:opacity-90 transition-opacity">
                   <UserAvatar src={profile.avatar_url} name={profile.full_name} size="sm" className="ring-1 ring-blue-500/30" />
                   <div className="hidden lg:flex items-center gap-1">
@@ -244,7 +300,6 @@ export default function HomePage() {
                 </Link>
 
                 <ChatListPopover currentUserId={user?.id} />
-
                 <FriendRequestsPopover currentUserId={user?.id} />
 
                 <button
@@ -266,7 +321,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Ô SEARCH TRÊN MOBILE NẾU BẤM ICON KÍNH LÚP */}
         {showMobileSearch && (
           <div className="mt-2 md:hidden animate-in slide-in-from-top-2 duration-200">
             <div className="relative">
@@ -295,7 +349,7 @@ export default function HomePage() {
       {/* CONTAINER CHÍNH */}
       <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-6 grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6 items-start">
         
-        {/* CỘT 1: LEFT SIDEBAR (STICKY TOP NÊN GIỮ H-FIT NÓ MỚI KHÔNG CUỘN MẤT) */}
+        {/* CỘT 1: LEFT SIDEBAR */}
         <aside className="hidden md:block space-y-4 sticky top-20 h-fit">
           {user && profile && (
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
@@ -379,7 +433,6 @@ export default function HomePage() {
         {/* CỘT 2 & 3: MAIN FEED */}
         <section className="md:col-span-2 space-y-4 min-w-0">
           
-          {/* DẢI CHỌN KHOA NGANG MOBILE */}
           <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-medium">
             {['Tất cả', 'CNTT', 'Thủy Lợi', 'Công Trình', 'Kinh Tế', 'Cơ Điện', 'Môi Trường'].map((fac) => (
               <button
@@ -482,53 +535,49 @@ export default function HomePage() {
             </select>
           </div>
 
-          {/* HASHTAG MÔN HOT MOBILE */}
-          {trendingSubjects.length > 0 && (
-            <div className="md:hidden bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
-              <p className="text-[10px] font-extrabold text-blue-600 uppercase tracking-wider flex items-center gap-1">
-                <TrendingUp className="w-3.5 h-3.5" /> Môn học phổ biến:
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {trendingSubjects.map((subject) => (
-                  <button
-                    key={subject}
-                    onClick={() => handleSelectSubject(subject)}
-                    className={`px-2 py-0.5 font-bold text-[10px] rounded-lg transition-all cursor-pointer ${
-                      search.toLowerCase() === subject.toLowerCase()
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}
-                  >
-                    #{subject}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* BẢNG TIN BÀI VIẾT FEED */}
           <div className="space-y-4">
-            {filteredDocs.map((doc) => (
-              <DocumentCard
-                key={doc.id}
-                doc={doc}
-                currentUserId={user?.id}
-                currentUserPoints={profile?.points || 0}
-                onDelete={handleDeleteInHome}
-                onPointsChange={handlePointsChange}
-              />
-            ))}
+            {initialLoading ? (
+              <div className="bg-white text-center py-12 rounded-2xl border border-slate-200 text-slate-400 text-xs font-semibold flex items-center justify-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                <span>Đang tải bảng tin...</span>
+              </div>
+            ) : (
+              filteredDocs.map((doc) => (
+                <DocumentCard
+                  key={doc.id}
+                  doc={doc}
+                  currentUserId={user?.id}
+                  currentUserPoints={profile?.points || 0}
+                  onDelete={handleDeleteInHome}
+                  onPointsChange={handlePointsChange}
+                />
+              ))
+            )}
 
-            {filteredDocs.length === 0 && (
+            {!initialLoading && filteredDocs.length === 0 && (
               <div className="bg-white text-center py-12 rounded-2xl border border-slate-200 text-slate-400 text-xs font-semibold space-y-2">
                 <BookOpen className="w-8 h-8 mx-auto text-slate-300" />
                 <p>Chưa có tài liệu nào thuộc mục này.</p>
               </div>
             )}
+
+            {/* 💥 VÙNG OBSERVER BẮT SỰ KIỆN SCROLL ĐỂ LOAD THÊM 10 BÀI */}
+            <div ref={observerTarget} className="py-4 text-center">
+              {loadingMore && (
+                <div className="flex items-center justify-center gap-2 text-xs font-bold text-slate-500">
+                  <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                  <span>Đang tải thêm bài viết...</span>
+                </div>
+              )}
+              {!hasMore && documents.length > 0 && (
+                <p className="text-[11px] text-slate-400 font-semibold">🎉 Đã tải hết bài viết rồi con vợ!</p>
+              )}
+            </div>
           </div>
         </section>
 
-        {/* CỘT 4: RIGHT SIDEBAR (STICKY TOP NÊN GIỮ H-FIT NÓ MỚI KHÔNG CUỘN MẤT) */}
+        {/* CỘT 4: RIGHT SIDEBAR */}
         <aside className="hidden md:block space-y-4 sticky top-20 h-fit">
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <div className="flex items-center gap-2 text-amber-600 font-extrabold text-xs uppercase tracking-wider">
@@ -575,7 +624,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* WIDGET XU HƯỚNG TÌM KIẾM */}
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <div className="flex items-center gap-2 text-blue-600 font-extrabold text-xs uppercase tracking-wider">
               <TrendingUp className="w-4 h-4" />
@@ -609,7 +657,6 @@ export default function HomePage() {
         </aside>
       </div>
 
-      {/* MODAL UPLOAD TẢI BÀI */}
       {user && (
         <UploadModal
           isOpen={isUploadOpen}
