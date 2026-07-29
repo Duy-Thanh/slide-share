@@ -610,7 +610,7 @@ export default function HomePage() {
                   ? feedType === 'social'
                     ? `${profile?.full_name || 'Bạn'} ơi, hôm nay có gì vui không? Cùng chia sẻ nhé...`
                     : `${profile?.full_name || 'Bạn'} ơi, chia sẻ tài liệu để giúp đỡ cộng đồng nhé...`
-                  : 'Đăng nhập để đăng bài & chia sẻ...'}
+                  : 'Đăng nhập để đăng bài và chia sẻ tài liệu nhé!'}
               </button>
             </div>
 
