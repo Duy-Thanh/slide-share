@@ -527,7 +527,7 @@ export default function HomePage() {
               onChange={(e) => setSelectedDocType(e.target.value)}
               className="bg-slate-100 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 outline-none shrink-0 cursor-pointer"
             >
-              <option value="Tất cả">Tất cả loại</option>
+              <option value="Tất cả">Tất cả loại tài liệu</option>
               <option value="Slide">Slide bài giảng</option>
               <option value="Đề thi">Đề thi / Đáp án</option>
               <option value="Đồ án">Đồ án mẫu</option>
