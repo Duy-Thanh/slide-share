@@ -608,8 +608,8 @@ export default function HomePage() {
               >
                 {user
                   ? feedType === 'social'
-                    ? `${profile?.full_name || 'Mày'} ơi, hôm nay có gì vui không? Đăng bài đi...`
-                    : `${profile?.full_name || 'Mày'} ơi, chia sẻ slide / đề thi (+20đ)...`
+                    ? `${profile?.full_name || 'Bạn'} ơi, hôm nay có gì vui không? Cùng chia sẻ nhé...`
+                    : `${profile?.full_name || 'Bạn'} ơi, chia sẻ tài liệu để giúp đỡ cộng đồng nhé...`
                   : 'Đăng nhập để đăng bài & chia sẻ...'}
               </button>
             </div>
