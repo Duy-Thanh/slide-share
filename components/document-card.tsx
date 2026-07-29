@@ -52,7 +52,7 @@ export default function DocumentCard({
 
   // Xử lý Upvote / Un-upvote
   const handleToggleUpvote = async () => {
-    if (!currentUserId) return alert('Mày phải đăng nhập mới thả tim được nhé!');
+    if (!currentUserId) return alert('Bạn phải đăng nhập mới thả tim được nhé!');
 
     const previousUpvoted = upvoted;
     const previousCount = upvoteCount;
@@ -183,11 +183,11 @@ export default function DocumentCard({
 
   // Xử lý Tải File
   const handleDownload = async () => {
-    if (!currentUserId) return alert('Mày cần đăng nhập để tải tài liệu!');
+    if (!currentUserId) return alert('Bạn cần đăng nhập để tải tài liệu!');
 
     if (doc.user_id !== currentUserId) {
       if (currentUserPoints < 10) {
-        return alert('Mày không đủ TLU-Coins! Cần 10 điểm để tải. Hãy upload bài mới để kiếm thêm xu nhé!');
+        return alert('Bạn không đủ TLU-Coins! Cần 10 điểm để tải. Hãy upload bài mới để kiếm thêm xu nhé!');
       }
 
       const nextPoints = currentUserPoints - 10;
@@ -245,7 +245,7 @@ export default function DocumentCard({
   };
 
   const handleDelete = async () => {
-    if (!confirm('Mày có chắc muốn xóa tài liệu này không?')) return;
+    if (!confirm('Bạn có chắc muốn xóa tài liệu này không?')) return;
     onDelete?.(doc.id);
     const { error } = await supabase.from('documents').delete().eq('id', doc.id);
     if (error) {

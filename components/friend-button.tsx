@@ -110,7 +110,7 @@ export default function FriendButton({ currentUserId, targetUserId }: Props) {
       return;
     }
 
-    if (status === 'accepted' && !confirm('Mày có chắc muốn hủy kết bạn?')) return;
+    if (status === 'accepted' && !confirm('Bạn có chắc muốn hủy kết bạn?')) return;
 
     setLoading(true);
     const { error } = await supabase.from('friends').delete().eq('id', idToDelete);

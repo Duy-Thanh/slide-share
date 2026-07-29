@@ -243,7 +243,7 @@ export default function CommentSection({
 
   // Xóa Comment
   const handleDeleteComment = async (commentId: string) => {
-    if (!confirm('Mày có chắc muốn xóa bình luận này không?')) return;
+    if (!confirm('Bạn có chắc muốn xóa bình luận này không?')) return;
 
     setComments((prev) => prev.filter((c) => c.id !== commentId && c.parent_id !== commentId));
     onCommentCountChange?.(Math.max(0, comments.length - 1));

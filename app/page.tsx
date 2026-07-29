@@ -460,7 +460,7 @@ export default function HomePage() {
                 }}
                 className="flex-1 text-left px-4 py-2.5 bg-slate-100 hover:bg-slate-200/80 rounded-full text-xs font-medium text-slate-500 transition-colors cursor-pointer truncate"
               >
-                {user ? `${profile?.full_name || 'Mày'} ơi, chia sẻ slide / đề thi (+20đ)...` : 'Đăng nhập để đăng đề thi & tích điểm...'}
+                {user ? `${profile?.full_name || 'Bạn'} ơi, chia sẻ để tích điểm nhé!` : 'Đăng nhập để đăng đề thi & tích điểm...'}
               </button>
             </div>
 

@@ -38,7 +38,7 @@ export default function ProfilePage() {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session?.user) {
-        alert('Mày cần đăng nhập để xem trang cá nhân!');
+        alert('Bạn cần đăng nhập để xem trang cá nhân!');
         router.push('/');
         return;
     }
@@ -341,7 +341,7 @@ export default function ProfilePage() {
         {activeTab === 'my-docs' && (
           <div className="space-y-3 sm:space-y-4">
             {myDocs.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-8">Mày chưa đăng tài liệu nào.</p>
+              <p className="text-sm text-slate-400 text-center py-8">Ơ, chưa có gì ở đây hết!</p>
             ) : (
               myDocs.map((doc) => (
                 <DocumentCard
