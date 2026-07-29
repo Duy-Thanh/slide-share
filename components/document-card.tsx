@@ -57,7 +57,7 @@ export default function DocumentCard({
   useEffect(() => {
     setUpvoted(doc.has_upvoted || false);
     setUpvoteCount(doc.upvotes_count || 0);
-    setBookmarked(doc.has_bookmarked || false);
+    setBookmarked(doc.has_bookmarked || false); // 💥 Đảm bảo dòng này có mặt
     setCommentsCount(doc.comments_count || 0);
   }, [doc.has_upvoted, doc.upvotes_count, doc.has_bookmarked, doc.id, doc.comments_count, currentUserId]);
 

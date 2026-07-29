@@ -38,8 +38,11 @@ export default function ChatListPopover({ currentUserId }: Props) {
   useEffect(() => {
     if (!currentUserId) return;
 
+    // Tạo Channel Name unique hoàn toàn cho từng instance component
+    const channelName = `realtime-conversations-${currentUserId}-${Math.random().toString(36).substring(2, 7)}`;
+
     const channel = supabase
-      .channel('realtime-conversations')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -48,7 +51,7 @@ export default function ChatListPopover({ currentUserId }: Props) {
           table: 'conversations',
         },
         () => {
-          if (isOpen) fetchConversations();
+          fetchConversations();
         }
       )
       .subscribe();
@@ -56,7 +59,7 @@ export default function ChatListPopover({ currentUserId }: Props) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUserId, isOpen]);
+  }, [currentUserId]);
 
   const fetchConversations = async () => {
     if (!currentUserId) return;
