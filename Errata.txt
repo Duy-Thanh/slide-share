@@ -1,2 +1,3 @@
 - Chuyển tab (Mới nhất -> Môn hot -> Bookmark -> Mới nhất) document-card lỗi mất state, thử lại thì bảo không thể thả tim
+- Nút Đăng nhập trong modal đăng nhập có bóng đổ không chính xác (màu vàng) khi bấm đăng nhập và hiển thị Đang đăng nhập
 - Infinite scroll có thể bị lỗi không tải đầy đủ các bài viết
