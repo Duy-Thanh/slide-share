@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { DocumentItem, CommentItem } from '@/types/database';
 import FilePreview from '@/components/file-preview';
-import { Heart, Bookmark, Eye, Download, MessageSquare, Send, Trash2, Loader2 } from 'lucide-react';
+import { Heart, Bookmark, Eye, Download, MessageSquare, Trash2 } from 'lucide-react';
 import UserAvatar from '@/components/user-avatar';
 import CommentSection from '@/components/comment-section';
 import DocPreviewModal from '@/components/doc-preview-modal';
@@ -254,18 +254,6 @@ export default function DocumentCard({
     }
   };
 
-  // Helper format thời gian cmt đẹp mắt
-  const formatCommentTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffInSec = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-    if (diffInSec < 60) return 'Vừa xong';
-    if (diffInSec < 3600) return `${Math.floor(diffInSec / 60)} phút trước`;
-    if (diffInSec < 86400) return `${Math.floor(diffInSec / 3600)} giờ trước`;
-    return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
-  };
-
   const formatPostTime = (dateStr: string) => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
@@ -286,45 +274,45 @@ export default function DocumentCard({
   const isOwner = currentUserId === doc.user_id;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-5 space-y-4">
-      {/* Header Post */}
-      {/* Header Post */}
-      <div className="flex justify-between items-start">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-4 sm:p-5 space-y-4">
+      {/* Header Post (Responsive Chống Tràn) */}
+      <div className="flex justify-between items-start gap-2">
         <Link
           href={currentUserId === doc.user_id ? '/profile' : `/profile/${doc.user_id}`}
-          className="flex items-center gap-3 group cursor-pointer"
+          className="flex items-center gap-2.5 sm:gap-3 group cursor-pointer flex-1 min-w-0"
         >
           <UserAvatar
             src={doc.profiles?.avatar_url}
             name={doc.profiles?.full_name}
             size="md"
-            className="group-hover:scale-105 transition-transform"
+            className="group-hover:scale-105 transition-transform shrink-0"
           />
-          <div>
-            {/* 💥 FIX DÍNH VÀ LỆCH TÍCH BADGE Ở ĐÂY */}
-            <h4 className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors flex items-center gap-1.5">
+          <div className="min-w-0 flex-1">
+            {/* TÊN + TÍCH BADGE KHÔNG BỊ RỚT DÒNG */}
+            <h4 className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors flex items-center gap-1.5 min-w-0">
               <span className="truncate">{doc.profiles?.full_name || 'Sinh viên TLU'}</span>
               <UserBadge badge={doc.profiles?.badge} size="sm" />
             </h4>
-            <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
-              <span>{doc.profiles?.faculty || doc.faculty}</span>
-              <span>•</span>
-              <span title={new Date(doc.created_at).toLocaleString('vi-VN')}>
+            <div className="flex items-center gap-1 sm:gap-2 text-[11px] sm:text-xs text-slate-400 mt-0.5 truncate">
+              <span className="truncate">{doc.profiles?.faculty || doc.faculty}</span>
+              <span className="shrink-0">•</span>
+              <span className="shrink-0" title={new Date(doc.created_at).toLocaleString('vi-VN')}>
                 {formatPostTime(doc.created_at)}
               </span>
             </div>
           </div>
         </Link>
 
-        <div className="flex items-center gap-2">
+        {/* Khung nút điều khiển phía bên phải */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <FriendButton currentUserId={currentUserId} targetUserId={doc.user_id} />
-          <span className="px-3 py-1 text-xs font-semibold bg-blue-50 text-blue-700 rounded-full">
+          <span className="hidden xs:inline-block px-2.5 py-1 text-[11px] sm:text-xs font-semibold bg-blue-50 text-blue-700 rounded-full shrink-0">
             {doc.doc_type}
           </span>
           {isOwner && (
             <button
               onClick={handleDelete}
-              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
               title="Xóa bài viết của bạn"
             >
               <Trash2 className="w-4 h-4" />
@@ -335,11 +323,11 @@ export default function DocumentCard({
 
       {/* Title & Detail */}
       <div className="space-y-2">
-        <h3 className="font-bold text-slate-900 text-base line-clamp-1">{doc.title}</h3>
+        <h3 className="font-bold text-slate-900 text-[15px] sm:text-base line-clamp-2 leading-snug">{doc.title}</h3>
         <p className="text-xs text-slate-500 line-clamp-2">{doc.description || 'Không có mô tả chi tiết'}</p>
 
         {/* Khung Thông Tin Tags */}
-        <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-1 text-[10px] sm:text-[11px]">
           {getFileBadge(doc.file_name, doc.file_ext)}
           <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-medium">📖 {doc.subject}</span>
           {doc.semester && <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-medium">🗓️ {doc.semester}</span>}
@@ -352,13 +340,13 @@ export default function DocumentCard({
         </div>
       </div>
 
-      {/* Action Bar */}
-      <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-        <div className="flex items-center gap-1 sm:gap-3">
+      {/* Action Bar (Gói gọn, Wrap linh hoạt không tràn nút) */}
+      <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           {/* Nút Upvote */}
           <button
             onClick={handleToggleUpvote}
-            className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors ${
+            className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-1.5 sm:px-2.5 rounded-lg transition-colors cursor-pointer ${
               upvoted ? 'bg-rose-50 text-rose-600' : 'text-slate-500 hover:bg-slate-100'
             }`}
           >
@@ -366,47 +354,49 @@ export default function DocumentCard({
             <span>{upvoteCount}</span>
           </button>
 
-          {/* Nút Comment kèm Badge Đếm Số Lượng */}
+          {/* Nút Comment */}
           <button
             onClick={fetchComments}
-            className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors ${
+            className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-1.5 sm:px-2.5 rounded-lg transition-colors cursor-pointer ${
               showComments ? 'bg-blue-50 text-blue-600' : 'text-slate-500 hover:bg-slate-100'
             }`}
           >
             <MessageSquare className="w-4 h-4" />
-            <span>Thảo luận ({commentsCount})</span>
+            <span className="hidden xs:inline">Thảo luận</span>
+            <span>({commentsCount})</span>
           </button>
 
           {/* Nút Bookmark */}
           <button
             onClick={handleToggleBookmark}
-            className={`p-1.5 rounded-lg transition-colors ${
+            className={`p-1.5 sm:p-2 rounded-lg transition-colors cursor-pointer ${
               bookmarked ? 'bg-amber-50 text-amber-600' : 'text-slate-400 hover:bg-slate-100'
             }`}
             title="Lưu tài liệu"
           >
-            <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-amber-600' : ''}`} />
+            <Bookmark className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${bookmarked ? 'fill-amber-600' : ''}`} />
           </button>
         </div>
 
-        {/* Nút Preview & Download */}
-        <div className="flex items-center gap-2">
-          {/* Nút Con Mắt -> Mở Modal Preview */}
+        {/* Nút Preview & Download (Luôn dạt sang phải khi wrap) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 ml-auto">
+          {/* Nút Xem Trực Tiếp */}
           <button
             onClick={() => setIsPreviewOpen(true)}
-            className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            className="p-1.5 sm:p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
             title="Xem trực tiếp"
           >
-            <Eye className="w-4 h-4" />
+            <Eye className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
           </button>
 
-          {/* Nút Tải Về (-10đ) */}
+          {/* Nút Tải Về */}
           <button
             onClick={handleDownload}
-            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-xl transition-colors flex items-center gap-1.5"
+            className="px-2.5 py-1.5 sm:px-3 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-[11px] sm:text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Tải về (-10đ)</span>
+            <span className="hidden xs:inline">Tải về (-10đ)</span>
+            <span className="xs:hidden">Tải về</span>
           </button>
 
           {/* Modal Xem Trực Tiếp */}
@@ -420,13 +410,15 @@ export default function DocumentCard({
         </div>
       </div>
 
-      {/* KHUNG THẢO LUẬN / COMMENT SANG XIN CHUẨN MXH */}
+      {/* KHUNG THẢO LUẬN / COMMENT */}
       {showComments && (
-        <CommentSection
-          documentId={doc.id}
-          currentUserId={currentUserId}
-          onCommentCountChange={(count) => setCommentsCount(count)}
-        />
+        <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+          <CommentSection
+            documentId={doc.id}
+            currentUserId={currentUserId}
+            onCommentCountChange={(count) => setCommentsCount(count)}
+          />
+        </div>
       )}
     </div>
   );

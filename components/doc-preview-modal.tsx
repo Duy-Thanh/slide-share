@@ -62,7 +62,6 @@ export default function DocPreviewModal({
           setLoading(false);
         });
     } else if (ext === 'doc') {
-      // File .doc cũ dùng fallback iframe
       setLoading(false);
     }
     // 2. File Excel (.xlsx, .xls, .csv)
@@ -95,12 +94,10 @@ export default function DocPreviewModal({
     // 3. File PowerPoint (.pptx & .ppt)
     else if (['pptx', 'ppt'].includes(ext)) {
       if (ext === 'ppt') {
-        // File .ppt binary cũ -> Fallback qua Office Viewer
         setLoading(false);
         return;
       }
 
-      // File .pptx ZIP mới -> Render Canvas
       fetch(fileUrl)
         .then((res) => {
           if (!res.ok) throw new Error('Không tải được file PPTX');
@@ -151,28 +148,28 @@ export default function DocPreviewModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-5xl h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+      <div className="bg-white w-full max-w-5xl h-[90vh] sm:h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200">
         
         {/* Header Modal */}
-        <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200 flex-shrink-0">
-          <span className="font-bold text-xs sm:text-sm text-slate-800 truncate">
+        <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 bg-slate-50 border-b border-slate-200 shrink-0 gap-2">
+          <span className="font-bold text-xs sm:text-sm text-slate-800 truncate flex-1 min-w-0">
             📄 {fileName}
           </span>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {onDownload && (
               <button
                 onClick={onDownload}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-xl transition-colors flex items-center gap-1"
+                className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Tải về</span>
+                <span className="hidden xs:inline">Tải về</span>
               </button>
             )}
 
             <button
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-xl transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -180,7 +177,7 @@ export default function DocPreviewModal({
         </div>
 
         {/* Khung Render Content */}
-        <div className="flex-1 bg-slate-200/60 overflow-auto relative p-3 sm:p-6 flex justify-center items-start">
+        <div className="flex-1 bg-slate-200/60 overflow-auto relative p-2 sm:p-6 flex justify-center items-start">
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 gap-2 text-slate-500 text-xs font-semibold">
               <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
@@ -190,7 +187,7 @@ export default function DocPreviewModal({
 
           {errorMsg && (
             <div className="flex flex-col items-center justify-center text-rose-500 text-xs font-semibold space-y-2 py-12">
-              <p>{errorMsg}</p>
+              <p className="text-center px-4">{errorMsg}</p>
             </div>
           )}
 
@@ -208,7 +205,7 @@ export default function DocPreviewModal({
           {ext === 'docx' && (
             <div
               ref={docxContainerRef}
-              className="w-full max-w-4xl bg-white p-8 rounded-xl border border-slate-200 shadow-sm overflow-auto text-slate-900"
+              className="w-full max-w-4xl bg-white p-4 sm:p-8 rounded-xl border border-slate-200 shadow-sm overflow-auto text-slate-900"
             />
           )}
 
@@ -221,12 +218,12 @@ export default function DocPreviewModal({
 
           {/* 4. Excel (.xlsx, .xls, .csv) */}
           {['xlsx', 'xls', 'csv'].includes(ext) && excelHtml && (
-            <div className="w-full max-w-full bg-white p-4 sm:p-6 rounded-xl border border-slate-300 shadow-sm overflow-x-auto">
+            <div className="w-full max-w-full bg-white p-3 sm:p-6 rounded-xl border border-slate-300 shadow-sm overflow-x-auto">
               <div
                 className="excel-table-wrapper w-full overflow-x-auto text-xs text-slate-900 font-sans
                   [&_table]:!w-full [&_table]:!max-w-none [&_table]:border-collapse [&_table]:border [&_table]:border-slate-300 [&_table]:table-auto
-                  [&_td]:border [&_td]:border-slate-300 [&_td]:p-2.5 [&_td]:min-w-[80px] [&_td]:whitespace-nowrap [&_td]:text-left
-                  [&_th]:border [&_th]:border-slate-300 [&_th]:p-2.5 [&_th]:bg-slate-100 [&_th]:font-bold [&_th]:whitespace-nowrap
+                  [&_td]:border [&_td]:border-slate-300 [&_td]:p-2 sm:[&_td]:p-2.5 [&_td]:min-w-[70px] [&_td]:whitespace-nowrap [&_td]:text-left
+                  [&_th]:border [&_th]:border-slate-300 [&_th]:p-2 sm:[&_th]:p-2.5 [&_th]:bg-slate-100 [&_th]:font-bold [&_th]:whitespace-nowrap
                   [&_tr:nth-child(even)]:bg-slate-50/60"
                 dangerouslySetInnerHTML={{ __html: excelHtml }}
               />
@@ -242,19 +239,19 @@ export default function DocPreviewModal({
                   className="w-full h-full rounded-xl border-none shadow-sm"
                 />
               ) : (
-                <div className="flex flex-col items-center gap-4 w-full">
-                  <div className="bg-white p-2 rounded-2xl shadow-md border border-slate-200 max-w-full overflow-hidden flex justify-center">
+                <div className="flex flex-col items-center gap-3 w-full">
+                  <div className="bg-white p-1.5 sm:p-2 rounded-2xl shadow-md border border-slate-200 max-w-full overflow-hidden flex justify-center">
                     <canvas ref={canvasRef} className="max-w-full h-auto rounded-lg" />
                   </div>
 
                   {pptxSlideCount > 0 && (
-                    <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-3 bg-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-2xl border border-slate-200 shadow-sm">
                       <button
                         disabled={currentSlide === 0}
                         onClick={() => handleSlideChange(currentSlide - 1)}
-                        className="p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30 rounded-lg transition-colors"
+                        className="p-1 sm:p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30 rounded-lg transition-colors cursor-pointer"
                       >
-                        <ChevronLeft className="w-5 h-5" />
+                        <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                       <span className="text-xs font-bold text-slate-700">
                         Slide {currentSlide + 1} / {pptxSlideCount}
@@ -262,9 +259,9 @@ export default function DocPreviewModal({
                       <button
                         disabled={currentSlide >= pptxSlideCount - 1}
                         onClick={() => handleSlideChange(currentSlide + 1)}
-                        className="p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30 rounded-lg transition-colors"
+                        className="p-1 sm:p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30 rounded-lg transition-colors cursor-pointer"
                       >
-                        <ChevronRight className="w-5 h-5" />
+                        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                     </div>
                   )}
@@ -280,7 +277,7 @@ export default function DocPreviewModal({
               {onDownload && (
                 <button
                   onClick={onDownload}
-                  className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl text-xs"
+                  className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl text-xs cursor-pointer"
                 >
                   Tải file về máy
                 </button>

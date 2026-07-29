@@ -85,16 +85,22 @@ export default function UploadModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden space-y-4 p-5">
+      <div className="bg-white w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border border-slate-200 p-4 sm:p-5 space-y-3 sm:space-y-4">
+        {/* Header Modal */}
         <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-          <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
-            <PlusCircle className="w-5 h-5 text-blue-600" /> Đăng Bài & Tích Điểm (+20 Coins)
+          <h3 className="font-extrabold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+            <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 shrink-0" />
+            <span>Đăng Bài & Tích Điểm (+20 Coins)</span>
           </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold p-1">
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Form Đăng Bài */}
         <form onSubmit={handleUpload} className="space-y-3 text-xs">
           <div>
             <label className="block font-bold text-slate-700 mb-1">Tên tài liệu / Tiêu đề bài đăng</label>
@@ -104,11 +110,11 @@ export default function UploadModal({
               placeholder="VD: Đề thi KTL322 - Cơ học thủy khí K64"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-900"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
             <div>
               <label className="block font-bold text-slate-700 mb-1">Tên môn học</label>
               <input
@@ -117,7 +123,7 @@ export default function UploadModal({
                 placeholder="VD: Thủy văn"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-900"
               />
             </div>
 
@@ -126,7 +132,7 @@ export default function UploadModal({
               <select
                 value={faculty}
                 onChange={(e) => setFaculty(e.target.value)}
-                className="w-full px-2 py-2 border border-slate-200 rounded-xl outline-none bg-white font-medium"
+                className="w-full px-2.5 py-2 border border-slate-200 rounded-xl outline-none bg-white font-medium text-slate-900 cursor-pointer"
               >
                 <option value="CNTT">CNTT</option>
                 <option value="Thủy Lợi">Thủy Lợi</option>
@@ -138,13 +144,13 @@ export default function UploadModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
             <div>
               <label className="block font-bold text-slate-700 mb-1">Loại tài liệu</label>
               <select
                 value={docType}
                 onChange={(e) => setDocType(e.target.value as any)}
-                className="w-full px-2 py-2 border border-slate-200 rounded-xl outline-none bg-white font-medium"
+                className="w-full px-2.5 py-2 border border-slate-200 rounded-xl outline-none bg-white font-medium text-slate-900 cursor-pointer"
               >
                 <option value="Slide">Slide bài giảng</option>
                 <option value="Đề thi">Đề thi / Đáp án</option>
@@ -162,7 +168,7 @@ export default function UploadModal({
                 placeholder="VD: K64, HK2 2026"
                 value={semester}
                 onChange={(e) => setSemester(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-900"
               />
             </div>
           </div>
@@ -174,7 +180,7 @@ export default function UploadModal({
               placeholder="Viết đôi dòng chia sẻ về tài liệu này..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-900"
             />
           </div>
 
@@ -193,16 +199,16 @@ export default function UploadModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl"
+              className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors cursor-pointer"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={uploading}
-              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md disabled:opacity-50"
+              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-colors disabled:opacity-50 cursor-pointer"
             >
-              {uploading ? 'Đang tải lên...' : 'Đăng Bài ngay (+20đ)'}
+              {uploading ? 'Đang tải lên...' : 'Đăng bài ngay (+20đ)'}
             </button>
           </div>
         </form>

@@ -13,7 +13,7 @@ export default function AuthModal({
 }) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [fullName, setFullName] = useState('');
-  const [faculty, setFaculty] = useState('CNTT'); // Cho phép chọn đúng khoa
+  const [faculty, setFaculty] = useState('CNTT');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,7 +26,6 @@ export default function AuthModal({
 
     try {
       if (isSignUp) {
-        // Gửi kèm metadata (full_name, faculty) xuống Trigger
         const { error: authError } = await supabase.auth.signUp({
           email,
           password,
@@ -61,18 +60,18 @@ export default function AuthModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl relative space-y-4 border border-slate-200">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+      <div className="bg-white w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl p-4 sm:p-6 shadow-2xl relative space-y-4 border border-slate-200">
         
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+          className="absolute right-3 top-3 sm:right-4 sm:top-4 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="space-y-1">
-          <h2 className="text-xl font-extrabold text-slate-900">
+        <div className="space-y-1 pr-6">
+          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900">
             {isSignUp ? 'Tạo tài khoản TLU Social' : 'Chào mừng trở lại!'}
           </h2>
           <p className="text-xs text-slate-500 font-medium">
@@ -96,7 +95,7 @@ export default function AuthModal({
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                    className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-900"
                     placeholder="VD: Nguyễn Văn A"
                   />
                 </div>
@@ -109,7 +108,7 @@ export default function AuthModal({
                   <select
                     value={faculty}
                     onChange={(e) => setFaculty(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl outline-none bg-white font-medium"
+                    className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl outline-none bg-white font-medium text-slate-900 cursor-pointer"
                   >
                     <option value="CNTT">Khoa Công nghệ thông tin</option>
                     <option value="Thủy Lợi">Khoa Thủy Lợi</option>
@@ -132,7 +131,7 @@ export default function AuthModal({
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-900"
                 placeholder="sinhvien@tlu.edu.vn"
               />
             </div>
@@ -148,7 +147,7 @@ export default function AuthModal({
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-900"
                 placeholder="••••••••"
               />
             </div>
@@ -157,7 +156,7 @@ export default function AuthModal({
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-md shadow-blue-500/20 disabled:opacity-50 mt-2"
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-md shadow-blue-500/20 disabled:opacity-50 mt-2 cursor-pointer"
           >
             {loading ? 'Đang xử lý...' : isSignUp ? 'Đăng ký nhận +50 Coins' : 'Đăng nhập ngay'}
           </button>
@@ -167,7 +166,7 @@ export default function AuthModal({
           {isSignUp ? 'Đã có tài khoản?' : 'Chưa có tài khoản?'} {' '}
           <button
             onClick={() => setIsSignUp(!isSignUp)}
-            className="text-blue-600 font-bold hover:underline"
+            className="text-blue-600 font-bold hover:underline cursor-pointer"
           >
             {isSignUp ? 'Đăng nhập ngay' : 'Tạo tài khoản (+50 Coins)'}
           </button>

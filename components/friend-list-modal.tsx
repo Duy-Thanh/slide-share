@@ -48,7 +48,7 @@ export default function FriendListModal({ userId, isOpen, onClose }: Props) {
     await supabase.from('friends').delete().eq('id', friendshipId);
     setFriends((prev) => prev.filter((f) => f.friendshipId !== friendshipId));
 
-    // 💥 BẮN EVENT CẬP NHẬT TRẠNG THÁI REALTIME CHO CÁC FRIEND_BUTTON KHÁC
+    // BẮN EVENT CẬP NHẬT TRẠNG THÁI REALTIME CHO CÁC FRIEND_BUTTON KHÁC
     window.dispatchEvent(new Event('friendshipUpdated'));
   };
 
@@ -56,27 +56,39 @@ export default function FriendListModal({ userId, isOpen, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden space-y-3 p-5">
-        <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-          <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
-            <Users className="w-5 h-5 text-blue-600" /> Danh sách bạn bè ({friends.length})
+      <div className="bg-white w-full max-w-md max-h-[90vh] rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col p-4 sm:p-5 space-y-3">
+        {/* Header Modal */}
+        <div className="flex justify-between items-center border-b border-slate-100 pb-3 shrink-0">
+          <h3 className="font-extrabold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+            <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+            <span>Danh sách bạn bè ({friends.length})</span>
           </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold p-1 cursor-pointer">
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="space-y-2 max-h-80 overflow-y-auto no-scrollbar">
+        {/* List Bạn bè */}
+        <div className="space-y-2 overflow-y-auto flex-1 no-scrollbar pr-0.5">
           {loading ? (
-            <p className="text-center text-xs text-slate-400 py-6">Đang tải danh sách...</p>
+            <p className="text-center text-xs text-slate-400 py-8">Đang tải danh sách...</p>
           ) : friends.length > 0 ? (
             friends.map(({ friendshipId, profile }) => (
-              <div key={friendshipId} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl transition-colors text-xs">
-                <Link href={`/profile/${profile.id}`} onClick={onClose} className="flex items-center gap-3 truncate flex-1 mr-2">
-                  <UserAvatar src={profile.avatar_url} name={profile.full_name} size="md" />
-                  <div className="truncate">
-                    {/* 💥 THÊM USERBADGE VÀO CẠNH TÊN BẠN BÈ */}
-                    <div className="flex items-center gap-1.5 truncate">
+              <div
+                key={friendshipId}
+                className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl transition-colors text-xs gap-2"
+              >
+                <Link
+                  href={`/profile/${profile.id}`}
+                  onClick={onClose}
+                  className="flex items-center gap-2.5 truncate flex-1 min-w-0"
+                >
+                  <UserAvatar src={profile.avatar_url} name={profile.full_name} size="md" className="shrink-0" />
+                  <div className="truncate min-w-0 flex-1">
+                    <div className="flex items-center gap-1 truncate">
                       <p className="font-bold text-slate-800 truncate">{profile.full_name || 'Sinh viên TLU'}</p>
                       <UserBadge badge={profile.badge} size="sm" />
                     </div>
@@ -86,10 +98,10 @@ export default function FriendListModal({ userId, isOpen, onClose }: Props) {
 
                 <button
                   onClick={() => handleUnfriend(friendshipId)}
-                  className="px-2.5 py-1 bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 font-bold text-[11px] rounded-lg transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 font-bold text-[11px] rounded-lg transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
                 >
                   <UserX className="w-3.5 h-3.5" />
-                  <span>Hủy bạn</span>
+                  <span className="hidden xs:inline">Hủy bạn</span>
                 </button>
               </div>
             ))

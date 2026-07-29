@@ -11,6 +11,7 @@ import FriendButton from '@/components/friend-button';
 import Link from 'next/link';
 import FriendRequestsPopover from '@/components/friend-requests-popover';
 import UserBadge from '@/components/user-badge';
+import ChatListPopover from '@/components/chat-list-popover';
 import {
   Search,
   LogIn,
@@ -185,19 +186,19 @@ export default function HomePage() {
     });
 
   return (
-    <main className="min-h-screen bg-[#f0f2f5] text-slate-800" suppressHydrationWarning>
+    <main className="min-h-screen bg-[#f0f2f5] text-slate-800 overflow-x-hidden" suppressHydrationWarning>
       {/* 🟢 TOPBAR NAVIGATION RESPONSIVE */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs px-3 sm:px-4 py-2.5">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs px-2 sm:px-4 py-2">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4">
           
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <Link href="/" className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <img
               src="/logo-tlu.png"
               alt="TLU Logo"
-              className="h-8 sm:h-10 w-auto object-contain transition-transform"
+              className="h-7 sm:h-9 w-auto object-contain"
             />
-            <span className="font-extrabold text-lg sm:text-xl bg-gradient-to-r from-blue-700 to-indigo-600 bg-clip-text text-transparent tracking-tight">
+            <span className="font-extrabold text-base sm:text-xl bg-gradient-to-r from-blue-700 to-indigo-600 bg-clip-text text-transparent tracking-tight hidden xs:inline">
               TLU Social
             </span>
           </Link>
@@ -207,7 +208,7 @@ export default function HomePage() {
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="Tìm kiếm môn học, đề thi, giáo trình Thủy Lợi..."
+              placeholder="Tìm kiếm môn học, đề thi..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-slate-100 border-none rounded-full text-xs outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition-all font-medium"
@@ -215,38 +216,37 @@ export default function HomePage() {
           </div>
 
           {/* Góc Phải Header */}
-          <div className="flex items-center gap-1.5 sm:gap-3">
-            {/* Nút Toggle Search trên Mobile */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <button
               onClick={() => setShowMobileSearch(!showMobileSearch)}
-              className="p-2 text-slate-600 hover:bg-slate-100 rounded-full md:hidden cursor-pointer"
+              className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-full md:hidden cursor-pointer"
               title="Tìm kiếm"
             >
-              {showMobileSearch ? <X className="w-5 h-5 text-slate-500" /> : <Search className="w-5 h-5" />}
+              {showMobileSearch ? <X className="w-4 h-4 text-slate-500" /> : <Search className="w-4 h-4" />}
             </button>
 
             {user && profile ? (
               <>
-                {/* TLU-Coins Badge */}
-                <div className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-300/60 rounded-full text-amber-700 text-[11px] sm:text-xs font-bold">
-                  <Coins className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 animate-bounce" />
-                  <span>{profile.points} <span className="hidden xs:inline">Coins</span></span>
+                <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-300/60 rounded-full text-amber-700 text-[11px] font-bold">
+                  <Coins className="w-3.5 h-3.5 text-amber-500 animate-bounce shrink-0" />
+                  <span>{profile.points}</span>
                 </div>
 
-                {/* Avatar + Tên + UserBadge ở Topbar */}
-                <Link href="/profile" className="flex items-center gap-1.5 hover:opacity-90 transition-opacity">
-                  <UserAvatar src={profile.avatar_url} name={profile.full_name} size="md" className="ring-2 ring-blue-500/30" />
+                <Link href="/profile" className="flex items-center gap-1 hover:opacity-90 transition-opacity">
+                  <UserAvatar src={profile.avatar_url} name={profile.full_name} size="sm" className="ring-1 ring-blue-500/30" />
                   <div className="hidden lg:flex items-center gap-1">
                     <span className="text-xs font-bold text-slate-700">{profile.full_name || 'thanhdz167'}</span>
                     <UserBadge badge={profile.badge} size="sm" />
                   </div>
                 </Link>
 
+                <ChatListPopover currentUserId={user?.id} />
+
                 <FriendRequestsPopover currentUserId={user?.id} />
 
                 <button
                   onClick={() => supabase.auth.signOut()}
-                  className="p-1.5 sm:p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
                   title="Đăng xuất"
                 >
                   <LogOut className="w-4 h-4" />
@@ -255,17 +255,16 @@ export default function HomePage() {
             ) : (
               <button
                 onClick={() => setIsAuthOpen(true)}
-                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer"
               >
-                <LogIn className="w-4 h-4" /> Đăng nhập
+                <LogIn className="w-3.5 h-3.5" /> <span>Đăng nhập</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Ô SEARCH TRÊN MOBILE NẾU BẤM ICON KÍNH LÚP */}
         {showMobileSearch && (
-          <div className="mt-2.5 md:hidden animate-in slide-in-from-top-2 duration-200">
+          <div className="mt-2 md:hidden animate-in slide-in-from-top-2 duration-200">
             <div className="relative">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <input
@@ -289,16 +288,17 @@ export default function HomePage() {
         )}
       </header>
 
-      {/* CONTAINER CHÍNH */}
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-6 grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6">
+      {/* 💥 CONTAINER CHÍNH: ITEMS-START GIÚP TẤT CẢ CÁC CỘT BẰNG MÉP TRÊN */}
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-6 grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6 items-start">
         
-        {/* CỘT 1: LEFT SIDEBAR */}
-        <aside className="hidden md:block space-y-4 sticky top-20 h-fit">
+        {/* CỘT 1: LEFT SIDEBAR (GỘP THÀNH 1 BLOCK UNIFIED CHO BẰNG VIỀN TRÊN) */}
+        {/* CỘT 1: LEFT SIDEBAR (FIX ĐỒNG NHẤT CẤU TRÚC CARD) */}
+        <aside className="hidden md:block space-y-4 sticky top-20">
           {user && profile && (
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
               <div className="flex items-center gap-3">
                 <UserAvatar src={profile.avatar_url} name={profile.full_name} size="lg" />
-                <div className="truncate">
+                <div className="truncate min-w-0">
                   <div className="flex items-center gap-1 truncate">
                     <p className="font-bold text-sm text-slate-800 truncate">{profile.full_name || 'Sinh viên TLU'}</p>
                     <UserBadge badge={profile.badge} size="sm" />
@@ -321,12 +321,12 @@ export default function HomePage() {
             </div>
           )}
 
-          <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-            <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-3 py-1">Lối tắt</p>
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
+            <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-1">Lối tắt</p>
 
             <button
               onClick={() => setActiveTab('newest')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'newest' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -336,7 +336,7 @@ export default function HomePage() {
 
             <button
               onClick={() => setActiveTab('popular')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'popular' ? 'bg-rose-50 text-rose-600' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -346,7 +346,7 @@ export default function HomePage() {
 
             <button
               onClick={() => setActiveTab('bookmarked')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'bookmarked' ? 'bg-amber-50 text-amber-700' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -355,8 +355,8 @@ export default function HomePage() {
             </button>
           </div>
 
-          <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-            <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-3 py-1">Các Khoa TLU</p>
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
+            <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-1">Các Khoa TLU</p>
             <div className="space-y-1">
               {['Tất cả', 'CNTT', 'Thủy Lợi', 'Công Trình', 'Kinh Tế', 'Cơ Điện', 'Môi Trường'].map((fac) => (
                 <button
@@ -374,7 +374,7 @@ export default function HomePage() {
         </aside>
 
         {/* CỘT 2 & 3: MAIN FEED */}
-        <section className="md:col-span-2 space-y-3 sm:space-y-4">
+        <section className="md:col-span-2 space-y-4 min-w-0">
           
           {/* DẢI CHỌN KHOA NGANG MOBILE */}
           <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-medium">
@@ -394,15 +394,15 @@ export default function HomePage() {
           </div>
 
           {/* KHUNG TẠO BÀI VIẾT */}
-          <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-            <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+            <div className="flex items-center gap-3">
               <UserAvatar src={profile?.avatar_url} name={profile?.full_name} size="md" />
               <button
                 onClick={() => {
                   if (!user) return setIsAuthOpen(true);
                   setIsUploadOpen(true);
                 }}
-                className="flex-1 text-left px-3.5 py-2 sm:px-4 sm:py-2.5 bg-slate-100 hover:bg-slate-200/80 rounded-full text-[11px] sm:text-xs font-medium text-slate-500 transition-colors cursor-pointer truncate"
+                className="flex-1 text-left px-4 py-2.5 bg-slate-100 hover:bg-slate-200/80 rounded-full text-xs font-medium text-slate-500 transition-colors cursor-pointer truncate"
               >
                 {user ? `${profile?.full_name || 'Mày'} ơi, chia sẻ slide / đề thi (+20đ)...` : 'Đăng nhập để đăng đề thi & tích điểm...'}
               </button>
@@ -414,9 +414,9 @@ export default function HomePage() {
                   if (!user) return setIsAuthOpen(true);
                   setIsUploadOpen(true);
                 }}
-                className="flex items-center gap-1.5 sm:gap-2 hover:bg-blue-50 px-2.5 py-1.5 rounded-xl text-blue-600 transition-colors text-[11px] sm:text-xs cursor-pointer"
+                className="flex items-center gap-2 hover:bg-blue-50 px-3 py-1.5 rounded-xl text-blue-600 transition-colors cursor-pointer"
               >
-                <PlusCircle className="w-4 h-4" />
+                <PlusCircle className="w-4 h-4 shrink-0" />
                 <span>Đăng tài liệu</span>
               </button>
 
@@ -425,20 +425,20 @@ export default function HomePage() {
                   if (!user) return setIsAuthOpen(true);
                   setIsUploadOpen(true);
                 }}
-                className="flex items-center gap-1.5 sm:gap-2 hover:bg-amber-50 px-2.5 py-1.5 rounded-xl text-amber-600 transition-colors text-[11px] sm:text-xs cursor-pointer"
+                className="flex items-center gap-2 hover:bg-amber-50 px-3 py-1.5 rounded-xl text-amber-600 transition-colors cursor-pointer"
               >
-                <Coins className="w-4 h-4" />
+                <Coins className="w-4 h-4 shrink-0" />
                 <span>Nhận +20 Coins</span>
               </button>
             </div>
           </div>
 
           {/* BỘ LỌC TABS */}
-          <div className="flex items-center justify-between bg-white p-1.5 sm:p-2 rounded-2xl border border-slate-200 shadow-xs text-xs font-bold overflow-x-auto no-scrollbar gap-2">
+          <div className="flex items-center justify-between bg-white p-2 rounded-2xl border border-slate-200 shadow-xs text-xs font-bold overflow-x-auto no-scrollbar gap-2">
             <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={() => setActiveTab('newest')}
-                className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl transition-all whitespace-nowrap text-[11px] sm:text-xs cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap text-xs cursor-pointer ${
                   activeTab === 'newest' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
@@ -447,7 +447,7 @@ export default function HomePage() {
 
               <button
                 onClick={() => setActiveTab('popular')}
-                className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl transition-all whitespace-nowrap text-[11px] sm:text-xs cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap text-xs cursor-pointer ${
                   activeTab === 'popular' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
@@ -457,7 +457,7 @@ export default function HomePage() {
               {user && (
                 <button
                   onClick={() => setActiveTab('bookmarked')}
-                  className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl transition-all whitespace-nowrap text-[11px] sm:text-xs cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap text-xs cursor-pointer ${
                     activeTab === 'bookmarked' ? 'bg-amber-500 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
@@ -469,7 +469,7 @@ export default function HomePage() {
             <select
               value={selectedDocType}
               onChange={(e) => setSelectedDocType(e.target.value)}
-              className="bg-slate-100 px-2 py-1.5 rounded-xl text-[11px] font-bold text-slate-700 outline-none shrink-0 cursor-pointer"
+              className="bg-slate-100 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 outline-none shrink-0 cursor-pointer"
             >
               <option value="Tất cả">Tất cả loại</option>
               <option value="Slide">Slide bài giảng</option>
@@ -504,7 +504,7 @@ export default function HomePage() {
           )}
 
           {/* BẢNG TIN BÀI VIẾT FEED */}
-          <div className="space-y-3 sm:space-y-4">
+          <div className="space-y-4">
             {filteredDocs.map((doc) => (
               <DocumentCard
                 key={doc.id}
@@ -526,7 +526,7 @@ export default function HomePage() {
         </section>
 
         {/* CỘT 4: RIGHT SIDEBAR */}
-        <aside className="hidden md:block space-y-4 sticky top-20 h-fit">
+        <aside className="hidden md:block space-y-4 sticky top-20">
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <div className="flex items-center gap-2 text-amber-600 font-extrabold text-xs uppercase tracking-wider">
               <Award className="w-4 h-4 text-amber-500" />
@@ -538,7 +538,7 @@ export default function HomePage() {
                 <div key={userItem.id} className="flex items-center justify-between text-xs group">
                   <Link
                     href={userItem.id === user?.id ? '/profile' : `/profile/${userItem.id}`}
-                    className="flex items-center gap-2 truncate flex-1 mr-2"
+                    className="flex items-center gap-2 truncate flex-1 mr-2 min-w-0"
                   >
                     <span
                       className={`w-5 h-5 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 ${
@@ -555,8 +555,7 @@ export default function HomePage() {
                     </span>
                     <UserAvatar src={userItem.avatar_url} name={userItem.full_name} size="sm" />
                     
-                    {/* TÊN + USERBADGE HIỂN THỊ CHUẨN ĐÉT TRONG BXH */}
-                    <div className="flex items-center gap-1 truncate">
+                    <div className="flex items-center gap-1 truncate min-w-0">
                       <span className="font-bold text-slate-800 truncate group-hover:text-blue-600 transition-colors">
                         {userItem.full_name || 'Sinh viên TLU'}
                       </span>
@@ -564,7 +563,7 @@ export default function HomePage() {
                     </div>
                   </Link>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <span className="font-extrabold text-amber-600 text-[11px]">{userItem.points} 🪙</span>
                     <FriendButton currentUserId={user?.id} targetUserId={userItem.id} />
                   </div>

@@ -174,8 +174,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <main className="min-h-screen bg-slate-50 p-3 sm:p-4 md:p-8 overflow-x-hidden">
+      <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
         
         {/* Nút Quay Lại Trang Chủ */}
         <Link
@@ -186,23 +186,23 @@ export default function ProfilePage() {
         </Link>
 
         {/* Card Thống Kê Profile */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 sm:space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0 w-full sm:w-auto">
               <UserAvatar
                 src={profile?.avatar_url}
                 name={profile?.full_name}
                 size="lg"
-                className="ring-4 ring-blue-50"
+                className="ring-4 ring-blue-50 shrink-0"
               />
-              <div className="space-y-1">
-                {/* 💥 BỔ SUNG USERBADGE TÍCH UY TÍN CẠNH TÊN CHÍNH CHỦ */}
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold text-slate-900">{profile?.full_name || 'Sinh viên TLU'}</h2>
+              <div className="space-y-1 min-w-0 flex-1">
+                {/* USERBADGE TÍCH UY TÍN CẠNH TÊN CHÍNH CHỦ */}
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 truncate">{profile?.full_name || 'Sinh viên TLU'}</h2>
                   <UserBadge badge={profile?.badge} size="md" />
                 </div>
                 
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 truncate">
                   {profile?.class_name ? `Lớp ${profile.class_name}` : 'Chưa cập nhật lớp'} • Khoa {profile?.faculty || 'CNTT'}
                 </p>
                 {profile?.student_code && (
@@ -211,26 +211,28 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
+            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-start sm:justify-end flex-wrap pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
               {/* TLU Coins Counter */}
-              <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm font-bold">
-                <Coins className="w-5 h-5 text-amber-600 animate-bounce" />
-                <span>{profile?.points || 0} TLU-Coins</span>
+              <div className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs sm:text-sm font-bold">
+                <Coins className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 animate-bounce shrink-0" />
+                <span>{profile?.points || 0} Coins</span>
               </div>
 
               <button
                 onClick={() => setIsEditing(!isEditing)}
-                className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
               >
-                <Edit3 className="w-4 h-4" /> {isEditing ? 'Hủy' : 'Sửa Profile'}
+                <Edit3 className="w-4 h-4 shrink-0" /> 
+                <span>{isEditing ? 'Hủy' : 'Sửa Profile'}</span>
               </button>
 
               <button
                 onClick={() => setIsFriendListOpen(true)}
-                className="px-4 py-2 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 border border-slate-200/80 shadow-2xs cursor-pointer"
+                className="px-3 py-2 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 border border-slate-200/80 shadow-2xs cursor-pointer"
               >
-                <Users className="w-4 h-4 text-blue-600" />
-                <span>Danh sách bạn bè</span>
+                <Users className="w-4 h-4 text-blue-600 shrink-0" />
+                <span className="hidden xs:inline">Danh sách bạn bè</span>
+                <span className="xs:hidden">Bạn bè</span>
               </button>
             </div>
           </div>
@@ -265,7 +267,7 @@ export default function ProfilePage() {
                 <select
                   value={faculty}
                   onChange={(e) => setFaculty(e.target.value)}
-                  className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs outline-none bg-white font-medium"
+                  className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs outline-none bg-white font-medium cursor-pointer"
                 >
                   <option value="CNTT">CNTT</option>
                   <option value="Thủy Lợi">Thủy Lợi</option>
@@ -311,10 +313,10 @@ export default function ProfilePage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200">
+        <div className="flex border-b border-slate-200 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab('my-docs')}
-            className={`pb-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+            className={`pb-3 px-3 sm:px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
               activeTab === 'my-docs'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -325,7 +327,7 @@ export default function ProfilePage() {
 
           <button
             onClick={() => setActiveTab('bookmarks')}
-            className={`pb-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+            className={`pb-3 px-3 sm:px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
               activeTab === 'bookmarks'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -337,7 +339,7 @@ export default function ProfilePage() {
 
         {/* TAB 1: TÀI LIỆU ĐÃ ĐĂNG */}
         {activeTab === 'my-docs' && (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {myDocs.length === 0 ? (
               <p className="text-sm text-slate-400 text-center py-8">Mày chưa đăng tài liệu nào.</p>
             ) : (
@@ -358,7 +360,7 @@ export default function ProfilePage() {
 
         {/* TAB 2: ĐÃ BOOKMARK */}
         {activeTab === 'bookmarks' && (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {bookmarkedDocs.length === 0 ? (
               <p className="text-sm text-slate-400 text-center py-8">Chưa có tài liệu nào được lưu.</p>
             ) : (
