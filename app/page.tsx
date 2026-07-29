@@ -81,6 +81,21 @@ export default function HomePage() {
 
   const observerTarget = useRef<HTMLDivElement | null>(null);
 
+  // 💥 XỬ LÝ ĐĂNG XUẤT: Gán last_seen = thời gian trước đó 3 phút để lập tức nhảy sang "Hoạt động 3 phút trước"
+  const handleSignOut = async () => {
+    setIsProfileMenuOpen(false);
+    setIsBottomMenuOpen(false);
+
+    if (user?.id) {
+      // Lưu thời gian chính xác lúc vừa bấm đăng xuất
+      await supabase
+        .from('profiles')
+        .update({ last_seen: new Date().toISOString() })
+        .eq('id', user.id);
+    }
+    await supabase.auth.signOut();
+  };
+
   const handleSelectSubject = (subject: string) => {
     if (search.toLowerCase() === subject.toLowerCase()) {
       setSearch('');
@@ -109,6 +124,39 @@ export default function HomePage() {
       setTrendingSubjects(sortedSubjects);
     }
   };
+
+  // 💥 HEARTBEAT BẮN LAST_SEEN & EVENT KHI ĐÓNG TAB
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const updateHeartbeat = async () => {
+      await supabase
+        .from('profiles')
+        .update({ last_seen: new Date().toISOString() })
+        .eq('id', user.id);
+    };
+
+    updateHeartbeat();
+    const interval = setInterval(updateHeartbeat, 60 * 1000);
+
+    // Khi đóng tab: Ghi nhận thời gian offline lùi 3 phút để chuyển ngay sang "Hoạt động X phút trước"
+    const handleUnload = () => {
+      if (user?.id) {
+        const offlineTime = new Date(Date.now() - 185 * 1000).toISOString();
+        navigator.sendBeacon(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}`,
+          JSON.stringify({ last_seen: offlineTime })
+        );
+      }
+    };
+
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -146,7 +194,6 @@ export default function HomePage() {
 
     fetchFriendRequestsCount();
 
-    // Lắng nghe sự kiện cập nhật từ nút FriendButton hoặc trang /friends
     const handleUpdate = () => fetchFriendRequestsCount();
     window.addEventListener('friendshipUpdated', handleUpdate);
 
@@ -528,10 +575,7 @@ export default function HomePage() {
                         </Link>
 
                         <button
-                          onClick={() => {
-                            setIsProfileMenuOpen(false);
-                            supabase.auth.signOut();
-                          }}
+                          onClick={handleSignOut}
                           className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors mt-0.5 cursor-pointer text-left"
                         >
                           <LogOut className="w-4 h-4 text-rose-500 shrink-0" />
@@ -974,7 +1018,6 @@ export default function HomePage() {
         >
           <div className="relative shrink-0">
             <MessageCircle className="w-5 h-5" />
-            {/* Chấm đỏ khi có tin nhắn chưa đọc (Có thể mở rộng thêm logic) */}
           </div>
           <span className="text-[10px] leading-normal overflow-visible mt-0.5 truncate max-w-full">Tin nhắn</span>
         </Link>
@@ -1041,10 +1084,7 @@ export default function HomePage() {
               </Link>
 
               <button
-                onClick={() => {
-                  setIsBottomMenuOpen(false);
-                  supabase.auth.signOut();
-                }}
+                onClick={handleSignOut}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors mt-0.5 cursor-pointer text-left"
               >
                 <LogOut className="w-4 h-4 text-rose-500 shrink-0" />

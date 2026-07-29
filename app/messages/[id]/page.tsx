@@ -7,6 +7,33 @@ import Link from 'next/link';
 import { ArrowLeft, Send, Loader2 } from 'lucide-react';
 import UserBadge from '@/components/user-badge';
 
+// Helper tính toán trạng thái Online dựa trên last_seen
+function getOnlineStatus(lastSeen: string | null) {
+  if (!lastSeen) return { isOnline: false, text: 'Ngoại tuyến' };
+
+  const lastSeenDate = new Date(lastSeen);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - lastSeenDate.getTime()) / 1000);
+
+  // Dưới 3 phút tính là Đang hoạt động
+  if (diffInSeconds < 180) {
+    return { isOnline: true, text: 'Đang hoạt động' };
+  }
+
+  const minutes = Math.floor(diffInSeconds / 60);
+  if (minutes < 60) {
+    return { isOnline: false, text: `Hoạt động ${minutes} phút trước` };
+  }
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return { isOnline: false, text: `Hoạt động ${hours} giờ trước` };
+  }
+
+  const days = Math.floor(hours / 24);
+  return { isOnline: false, text: `Hoạt động ${days} ngày trước` };
+}
+
 export default function DirectMessagePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: targetUserId } = use(params);
 
@@ -45,6 +72,23 @@ export default function DirectMessagePage({ params }: { params: Promise<{ id: st
 
     if (partnerProfile) setTargetUser(partnerProfile);
 
+    // 💥 FIX LỖI: Chuỗi `.on()` xong xuôi mới gọi `.subscribe()`
+    const userChannel = supabase
+      .channel(`profile-${partnerId}-${Math.random().toString(36).substring(2, 7)}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${partnerId}`,
+        },
+        (payload) => {
+          setTargetUser(payload.new);
+        }
+      )
+      .subscribe();
+
     // 2. Lấy hoặc tạo cuộc trò chuyện (Conversation)
     let { data: conv } = await supabase
       .from('conversations')
@@ -68,6 +112,10 @@ export default function DirectMessagePage({ params }: { params: Promise<{ id: st
     } else {
       setLoading(false);
     }
+
+    return () => {
+      supabase.removeChannel(userChannel);
+    };
   };
 
   const fetchMessages = async (convId: string) => {
@@ -97,10 +145,9 @@ export default function DirectMessagePage({ params }: { params: Promise<{ id: st
           filter: `conversation_id=eq.${convId}`,
         },
         (payload) => {
-          // 💥 KHÁC BIỆT Ở ĐÂY: Check trùng ID trước khi push vào state
           setMessages((prev) => {
             if (prev.some((msg) => msg.id === payload.new.id)) {
-              return prev; // Đã có rồi thì giữ nguyên, đéo append nữa
+              return prev;
             }
             return [...prev, payload.new];
           });
@@ -123,7 +170,6 @@ export default function DirectMessagePage({ params }: { params: Promise<{ id: st
     setSending(true);
 
     try {
-      // Insert message mới
       const { error } = await supabase.from('messages').insert({
         conversation_id: conversationId,
         sender_id: currentUserId,
@@ -132,7 +178,6 @@ export default function DirectMessagePage({ params }: { params: Promise<{ id: st
 
       if (error) throw error;
 
-      // Update tin nhắn cuối cùng trong conversation
       await supabase
         .from('conversations')
         .update({ last_message: text, updated_at: new Date().toISOString() })
@@ -145,6 +190,8 @@ export default function DirectMessagePage({ params }: { params: Promise<{ id: st
     }
   };
 
+  const statusInfo = getOnlineStatus(targetUser?.last_seen);
+
   return (
     <main className="flex flex-col h-screen bg-[#f0f2f5] text-slate-800">
       {/* HEADER TOPBAR */}
@@ -156,20 +203,32 @@ export default function DirectMessagePage({ params }: { params: Promise<{ id: st
 
           {targetUser && (
             <Link href={`/profile/${targetUser.id}`} className="flex items-center gap-2.5 group">
-              <UserAvatar src={targetUser.avatar_url} name={targetUser.full_name} size="sm" />
+              <div className="relative">
+                <UserAvatar src={targetUser.avatar_url} name={targetUser.full_name} size="sm" />
+                {/* 🔴/🟢 CHẤM BÁO TRẠNG THÁI REALTIME */}
+                <span
+                  className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white ${
+                    statusInfo.isOnline ? 'bg-emerald-500' : 'bg-slate-300'
+                  }`}
+                />
+              </div>
+
               <div>
                 <h3 className="font-bold text-xs text-slate-800 group-hover:text-blue-600 transition-colors flex items-center gap-1">
                   <span>{targetUser.full_name || 'Sinh viên TLU'}</span>
                   <UserBadge badge={targetUser.badge} size="sm" />
                 </h3>
-                <p className="text-[10px] text-slate-400">{targetUser.faculty ? `Khoa ${targetUser.faculty}` : 'Đang hoạt động'}</p>
+                {/* 🟢/⚪ TRẠNG THÁI CHUẨN REALTIME */}
+                <p className={`text-[10px] font-medium ${statusInfo.isOnline ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  {statusInfo.text}
+                </p>
               </div>
             </Link>
           )}
         </div>
       </div>
 
-      {/* NOIDUNG TIN NHAN */}
+      {/* NỘI DUNG TIN NHẮN */}
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-20 text-xs text-slate-400 font-semibold">
