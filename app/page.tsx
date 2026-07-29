@@ -378,17 +378,17 @@ export default function HomePage() {
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs px-2 sm:px-4 py-2">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4">
           <Link href="/" className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <img src="/logo-tlu.png" alt="TLU Logo" className="h-7 sm:h-9 w-auto object-contain" />
-            <span className="font-extrabold text-base sm:text-xl bg-gradient-to-r from-blue-700 to-indigo-600 bg-clip-text text-transparent tracking-tight hidden xs:inline">
+            <img src="/logo-tlu.png" alt="logo" className="h-7 sm:h-9 w-auto object-contain" />
+            {/* <span className="font-extrabold text-base sm:text-xl bg-gradient-to-r from-blue-700 to-indigo-600 bg-clip-text text-transparent tracking-tight hidden xs:inline">
               TLU Social
-            </span>
+            </span> */}
           </Link>
 
           <div className="flex-1 max-w-md relative hidden md:block">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="Tìm kiếm môn học, đề thi..."
+              placeholder="Tìm kiếm môn học, đề cương, giáo trình..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-slate-100 border-none rounded-full text-xs outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition-all font-medium"
@@ -471,7 +471,7 @@ export default function HomePage() {
                 <UserAvatar src={profile.avatar_url} name={profile.full_name} size="lg" />
                 <div className="truncate min-w-0">
                   <div className="flex items-center gap-1 truncate">
-                    <p className="font-bold text-sm text-slate-800 truncate">{profile.full_name || 'Sinh viên TLU'}</p>
+                    <p className="font-bold text-sm text-slate-800 truncate">{profile.full_name || 'Sinh viên'}</p>
                     <UserBadge badge={profile.badge} size="sm" />
                   </div>
                   <p className="text-xs text-slate-500 truncate">{profile.faculty ? `Khoa ${profile.faculty}` : 'Chưa cập nhật Khoa'}</p>
@@ -532,7 +532,7 @@ export default function HomePage() {
           </div>
 
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-            <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-1">Các Khoa TLU</p>
+            <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-1">Các khoa/ngành</p>
             <div className="space-y-1">
               {['Tất cả', 'CNTT', 'Thủy Lợi', 'Công Trình', 'Kinh Tế', 'Cơ Điện', 'Môi Trường'].map((fac) => (
                 <button
@@ -734,7 +734,7 @@ export default function HomePage() {
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <div className="flex items-center gap-2 text-amber-600 font-extrabold text-xs uppercase tracking-wider">
               <Award className="w-4 h-4 text-amber-500" />
-              <span>Top Đóng Góp TLU</span>
+              <span>Top đóng góp</span>
             </div>
 
             <div className="space-y-2.5">
