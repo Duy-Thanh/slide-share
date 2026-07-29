@@ -652,7 +652,7 @@ export default function HomePage() {
           </div>
 
           <p className="text-[10px] text-slate-400 text-center font-medium">
-            © {new Date().getFullYear()} CyberDay Studios • Được phát triển cho SV Thủy Lợi
+            © {new Date().getFullYear()} CyberDay Studios Publishing • All right reserved
           </p>
         </aside>
       </div>
