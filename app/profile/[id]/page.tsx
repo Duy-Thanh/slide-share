@@ -12,7 +12,7 @@ import FriendButton from '@/components/friend-button';
 import FriendListModal from '@/components/friend-list-modal';
 import MessageButton from '@/components/message-button';
 
-const PAGE_SIZE = 10; // Load mỗi lần 10 bài để chống vỡ RAM
+const PAGE_SIZE = 10;
 
 export default function PublicProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -29,6 +29,8 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // Ref phanh chống gọi API trùng lặp
+  const isFetchingRef = useRef(false);
   const observerTarget = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -66,10 +68,13 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
     setLoading(false);
   };
 
-  // 2. Fetch tài liệu phân trang (Cursor-based Pagination)
+  // 2. Fetch tài liệu phân trang (Cursor-based Pagination + Dedup)
   const fetchUserDocs = useCallback(
     async (isFirstLoad = false) => {
-      if (loadingMore || (!hasMore && !isFirstLoad)) return;
+      if (isFetchingRef.current) return;
+      if (!isFirstLoad && !hasMore) return;
+
+      isFetchingRef.current = true;
 
       if (isFirstLoad) {
         setHasMore(true);
@@ -131,16 +136,26 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
           }));
         }
 
+        // 💥 DEDUP DỮ LIỆU ĐẢM BẢO KHÔNG TRÙNG ID BẢN GHI
         if (isFirstLoad) {
-          setUserDocs(formattedDocs);
+          const uniqueDocs = Array.from(new Map(formattedDocs.map((d: any) => [d.id, d])).values());
+          setUserDocs(uniqueDocs as DocumentItem[]);
         } else {
-          setUserDocs((prev) => [...prev, ...formattedDocs]);
+          setUserDocs((prev) => {
+            const combined = [...prev, ...formattedDocs];
+            const uniqueDocs = Array.from(new Map(combined.map((d) => [d.id, d])).values());
+            return uniqueDocs as DocumentItem[];
+          });
         }
+      } else {
+        if (isFirstLoad) setUserDocs([]);
+        setHasMore(false);
       }
 
       setLoadingMore(false);
+      isFetchingRef.current = false;
     },
-    [targetUserId, userDocs, loadingMore, hasMore]
+    [targetUserId, userDocs, hasMore]
   );
 
   // 3. Intersection Observer bắt sự kiện cuộn trang
@@ -150,18 +165,18 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+        if (entries[0].isIntersecting && hasMore && !isFetchingRef.current && !loading) {
           fetchUserDocs(false);
         }
       },
-      { threshold: 0.5 }
+      { threshold: 0.1, rootMargin: '100px' }
     );
 
     observer.observe(element);
     return () => {
       if (element) observer.unobserve(element);
     };
-  }, [fetchUserDocs, hasMore, loadingMore, loading]);
+  }, [fetchUserDocs, hasMore, loading]);
 
   const handleDeleteInPublic = (docId: string) => {
     setUserDocs((prev) => prev.filter((doc) => doc.id !== docId));
@@ -169,8 +184,9 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 text-sm">
-        Đang tải trang cá nhân...
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 text-sm font-semibold gap-2">
+        <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+        <span>Đang tải trang cá nhân...</span>
       </div>
     );
   }
@@ -262,9 +278,9 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
               Sinh viên này chưa đóng góp tài liệu nào.
             </div>
           ) : (
-            userDocs.map((doc) => (
+            userDocs.map((doc, idx) => (
               <DocumentCard
-                key={doc.id}
+                key={`${doc.id}-${idx}`} // 💥 FIX LỖI DUPLICATE KEY 100%
                 doc={doc}
                 currentUserId={currentUserId}
                 currentUserPoints={currentUserPoints}
@@ -275,7 +291,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
           )}
 
           {/* Vùng Observer Bắt Cuộn Trang */}
-          <div ref={observerTarget} className="py-4 text-center">
+          <div ref={observerTarget} className="py-4 text-center min-h-[40px]">
             {loadingMore && (
               <div className="flex items-center justify-center gap-2 text-xs font-bold text-slate-500">
                 <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
