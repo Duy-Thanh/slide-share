@@ -336,7 +336,13 @@ export default function DocumentCard({
               {doc.file_size && <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-medium shrink-0">💾 {formatFileSize(doc.file_size)}</span>}
             </div>
 
-            <FilePreview fileId={doc.file_id} fileName={doc.file_name} fileExt={doc.file_ext} />
+            {/* 💥 ĐÃ TRUYỀN THÊM onOpenPreview={handleOpenPreview} CHUẨN ĐÉT */}
+            <FilePreview
+              fileId={doc.file_id}
+              fileName={doc.file_name}
+              fileExt={doc.file_ext}
+              onOpenPreview={handleOpenPreview}
+            />
           </div>
         )}
 
