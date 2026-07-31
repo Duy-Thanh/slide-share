@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { X, Mail, Lock, User, GraduationCap } from 'lucide-react';
-import { Loader2 } from 'lucide-react';
+import { X, Mail, Lock, User, GraduationCap, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function AuthModal({
   isOpen,
@@ -40,7 +40,9 @@ export default function AuthModal({
 
         if (authError) throw authError;
 
-        alert('Đăng ký tài khoản thành công! Tặng ngay +50 TLU-Coins 🎉');
+        toast.success('Đăng ký thành công! 🎉', {
+          description: 'Tặng ngay +50 TLU-Coins vào tài khoản của bạn.',
+        });
         setIsSignUp(false);
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -50,11 +52,15 @@ export default function AuthModal({
 
         if (error) throw error;
 
-        alert('Đăng nhập thành công!');
+        toast.success('Đăng nhập thành công!', {
+          description: 'Chào mừng bạn trở lại với TLU Social.',
+        });
         onClose();
       }
     } catch (err: any) {
-      alert('Lỗi: ' + err.message);
+      toast.error('Xác thực thất bại!', {
+        description: err.message,
+      });
     } finally {
       setLoading(false);
     }
@@ -171,7 +177,7 @@ export default function AuthModal({
         </form>
 
         <div className="text-center text-xs text-slate-500 pt-2 border-t border-slate-100">
-          {isSignUp ? 'Đã có tài khoản?' : 'Chưa có tài khoản?'} {' '}
+          {isSignUp ? 'Đã có tài khoản?' : 'Chưa có tài khoản?'}{' '}
           <button
             onClick={() => setIsSignUp(!isSignUp)}
             className="text-blue-600 font-bold hover:underline cursor-pointer"

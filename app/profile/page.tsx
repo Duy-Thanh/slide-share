@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { DocumentItem, Profile } from '@/types/database';
 import DocumentCard from '@/components/document-card';
-import { Coins, Folder, Bookmark, Edit3, ArrowLeft, Save, Users } from 'lucide-react';
+import { Coins, Folder, Bookmark, Edit3, ArrowLeft, Save, Users, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import UserAvatar from '@/components/user-avatar';
 import FriendListModal from '@/components/friend-list-modal';
 import UserBadge from '@/components/user-badge';
+import { toast } from 'sonner';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -38,9 +39,9 @@ export default function ProfilePage() {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session?.user) {
-        alert('Bạn cần đăng nhập để xem trang cá nhân!');
-        router.push('/');
-        return;
+      toast.warning('Bạn cần đăng nhập để xem trang cá nhân!');
+      router.push('/');
+      return;
     }
 
     const uid = session.user.id;
@@ -48,24 +49,24 @@ export default function ProfilePage() {
 
     // 1. Fetch Profile info
     const { data: profData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', uid)
-        .single();
+      .from('profiles')
+      .select('*')
+      .eq('id', uid)
+      .single();
 
     if (profData) {
-        setProfile(profData);
-        setFullName(profData.full_name || '');
-        setStudentCode(profData.student_code || '');
-        setFaculty(profData.faculty || 'CNTT');
-        setClassName(profData.class_name || '');
-        setAvatarUrl(profData.avatar_url || '');
+      setProfile(profData);
+      setFullName(profData.full_name || '');
+      setStudentCode(profData.student_code || '');
+      setFaculty(profData.faculty || 'CNTT');
+      setClassName(profData.class_name || '');
+      setAvatarUrl(profData.avatar_url || '');
     }
 
     // 2. Fetch danh sách ID các bài user này đã Upvote và Bookmark
     const [upvotesRes, bookmarksRes] = await Promise.all([
-        supabase.from('upvotes').select('document_id').eq('user_id', uid),
-        supabase.from('bookmarks').select('document_id').eq('user_id', uid),
+      supabase.from('upvotes').select('document_id').eq('user_id', uid),
+      supabase.from('bookmarks').select('document_id').eq('user_id', uid),
     ]);
 
     const myUpvotedDocIds = new Set(upvotesRes.data?.map((u) => u.document_id) || []);
@@ -73,39 +74,39 @@ export default function ProfilePage() {
 
     // 3. Fetch My Documents
     const { data: docsData } = await supabase
-        .from('documents')
-        .select('*, profiles(*), comments(count)')
-        .eq('user_id', uid)
-        .order('created_at', { ascending: false });
+      .from('documents')
+      .select('*, profiles(*), comments(count)')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false });
 
     if (docsData) {
-        const formattedMyDocs = docsData.map((doc: any) => ({
+      const formattedMyDocs = docsData.map((doc: any) => ({
         ...doc,
         comments_count: doc.comments?.[0]?.count || 0,
         has_upvoted: myUpvotedDocIds.has(doc.id),
         has_bookmarked: myBookmarkedDocIds.has(doc.id),
-        }));
-        setMyDocs(formattedMyDocs);
+      }));
+      setMyDocs(formattedMyDocs);
     }
 
     // 4. Fetch Bookmarked Documents
     const { data: bData } = await supabase
-        .from('bookmarks')
-        .select('document_id, documents(*, profiles(*), comments(count))')
-        .eq('user_id', uid);
+      .from('bookmarks')
+      .select('document_id, documents(*, profiles(*), comments(count))')
+      .eq('user_id', uid);
 
     if (bData) {
-        const bDocs = bData
+      const bDocs = bData
         .map((b: any) => b.documents)
         .filter((doc: any) => doc !== null && doc !== undefined)
         .map((doc: any) => ({
-            ...doc,
-            comments_count: doc.comments?.[0]?.count || 0,
-            has_upvoted: myUpvotedDocIds.has(doc.id),
-            has_bookmarked: true,
+          ...doc,
+          comments_count: doc.comments?.[0]?.count || 0,
+          has_upvoted: myUpvotedDocIds.has(doc.id),
+          has_bookmarked: true,
         }));
 
-        setBookmarkedDocs(bDocs);
+      setBookmarkedDocs(bDocs);
     }
 
     setLoading(false);
@@ -133,12 +134,18 @@ export default function ProfilePage() {
       .eq('id', user.id);
 
     if (error) {
-      alert('Lỗi cập nhật: ' + error.message);
+      toast.error('Lỗi cập nhật!', { description: error.message });
     } else {
-      alert('Cập nhật thông tin thành công!');
+      toast.success('Cập nhật thông tin thành công!');
       setIsEditing(false);
       fetchProfileData();
     }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success('Đã đăng xuất tài khoản');
+    router.push('/');
   };
 
   const handleDeleteInProfile = (docId: string) => {
@@ -167,7 +174,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 text-sm">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 text-xs font-semibold">
         Đang tải thông tin cá nhân...
       </div>
     );
@@ -177,13 +184,23 @@ export default function ProfilePage() {
     <main className="min-h-screen bg-slate-50 p-3 sm:p-4 md:p-8 overflow-x-hidden">
       <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
         
-        {/* Nút Quay Lại Trang Chủ */}
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-blue-600 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-xs transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> Quay lại trang chủ
-        </Link>
+        {/* Top Header Navigation & Action */}
+        <div className="flex items-center justify-between gap-2">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-blue-600 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-xs transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" /> Quay lại trang chủ
+          </Link>
+
+          <button
+            onClick={handleLogout}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-2 rounded-xl border border-rose-200/60 transition-colors cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden xs:inline">Đăng xuất</span>
+          </button>
+        </div>
 
         {/* Card Thống Kê Profile */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 sm:space-y-6">
@@ -196,7 +213,6 @@ export default function ProfilePage() {
                 className="ring-4 ring-blue-50 shrink-0"
               />
               <div className="space-y-1 min-w-0 flex-1">
-                {/* USERBADGE TÍCH UY TÍN CẠNH TÊN CHÍNH CHỦ */}
                 <div className="flex items-center gap-1.5 min-w-0">
                   <h2 className="text-lg sm:text-xl font-bold text-slate-900 truncate">{profile?.full_name || 'Sinh viên TLU'}</h2>
                   <UserBadge badge={profile?.badge} size="md" />
@@ -212,7 +228,6 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-start sm:justify-end flex-wrap pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-              {/* TLU Coins Counter */}
               <div className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs sm:text-sm font-bold">
                 <Coins className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 animate-bounce shrink-0" />
                 <span>{profile?.points || 0} Coins</span>

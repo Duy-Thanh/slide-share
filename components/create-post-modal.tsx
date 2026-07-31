@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { uploadMediaToTelegram } from '@/lib/telegram';
-import { X, Image as ImageIcon, Video, Loader2, Send } from 'lucide-react';
+import { X, Image as ImageIcon, Loader2, Send } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Props {
   isOpen: boolean;
@@ -35,8 +36,24 @@ export default function CreatePostModal({ isOpen, onClose, userId, onPostSuccess
   };
 
   const handleRemoveMedia = (index: number) => {
+    // Dọn dẹp memory leak Object URL
+    if (previews[index]?.url) {
+      URL.revokeObjectURL(previews[index].url);
+    }
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
     setPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleResetForm = () => {
+    previews.forEach((p) => URL.revokeObjectURL(p.url));
+    setContent('');
+    setSelectedFiles([]);
+    setPreviews([]);
+  };
+
+  const handleClose = () => {
+    handleResetForm();
+    onClose();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,14 +86,12 @@ export default function CreatePostModal({ isOpen, onClose, userId, onPostSuccess
 
       if (error) throw error;
 
-      // Reset form
-      setContent('');
-      setSelectedFiles([]);
-      setPreviews([]);
+      toast.success('Đã đăng bài viết mới thành công! 🎉');
+      handleResetForm();
       onPostSuccess();
       onClose();
     } catch (err: any) {
-      alert('Đăng bài thất bại: ' + err.message);
+      toast.error('Đăng bài thất bại!', { description: err.message });
     } finally {
       setUploading(false);
     }
@@ -88,7 +103,7 @@ export default function CreatePostModal({ isOpen, onClose, userId, onPostSuccess
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-100">
           <h3 className="font-extrabold text-slate-800 text-sm">Tạo bài viết mới</h3>
-          <button onClick={onClose} className="p-1 rounded-full text-slate-400 hover:bg-slate-100 cursor-pointer">
+          <button onClick={handleClose} className="p-1 rounded-full text-slate-400 hover:bg-slate-100 cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>

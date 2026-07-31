@@ -8,6 +8,7 @@ import Link from 'next/link';
 import FriendButton from '@/components/friend-button';
 import { Heart, Reply, Send, Trash2, Loader2, AtSign } from 'lucide-react';
 import UserBadge from '@/components/user-badge';
+import { toast } from 'sonner';
 
 interface Props {
   documentId?: string;
@@ -175,7 +176,7 @@ export default function CommentSection({
   };
 
   const handleToggleLikeComment = async (commentId: string, hasLiked?: boolean, currentLikes = 0) => {
-    if (!currentUserId) return alert('Đăng nhập để thả tim bình luận nhé!');
+    if (!currentUserId) return toast.warning('Đăng nhập để thả tim bình luận nhé!');
 
     setComments((prev) =>
       prev.map((c) => {
@@ -208,7 +209,7 @@ export default function CommentSection({
 
   const handleSendComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUserId) return alert('Vui lòng đăng nhập!');
+    if (!currentUserId) return toast.warning('Vui lòng đăng nhập!');
     if (!inputText.trim() || sending) return;
 
     setSending(true);
@@ -245,9 +246,10 @@ export default function CommentSection({
         setReplyingTo(null);
         setShowMentionPopup(false);
         onCommentCountChange?.(comments.length + 1);
+        toast.success('Đã gửi bình luận');
       }
     } catch (err: any) {
-      alert('Không gửi được bình luận: ' + err.message);
+      toast.error('Không gửi được bình luận!', { description: err.message });
     } finally {
       setSending(false);
     }
@@ -261,8 +263,10 @@ export default function CommentSection({
 
     const { error } = await supabase.from('comments').delete().eq('id', commentId);
     if (error) {
-      alert('Lỗi xóa bình luận: ' + error.message);
+      toast.error('Lỗi xóa bình luận: ' + error.message);
       fetchComments();
+    } else {
+      toast.info('Đã xóa bình luận');
     }
   };
 
@@ -341,7 +345,7 @@ export default function CommentSection({
                         {isMyComment && (
                           <button
                             onClick={() => handleDeleteComment(parent.id)}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 transition-all"
+                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 transition-all cursor-pointer"
                             title="Xóa bình luận"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -363,7 +367,7 @@ export default function CommentSection({
                         onClick={() =>
                           handleToggleLikeComment(parent.id, parent.has_liked, parent.likes_count)
                         }
-                        className={`flex items-center gap-1 hover:text-rose-600 transition-colors ${
+                        className={`flex items-center gap-1 hover:text-rose-600 transition-colors cursor-pointer ${
                           parent.has_liked ? 'text-rose-600 font-bold' : ''
                         }`}
                       >
@@ -373,7 +377,7 @@ export default function CommentSection({
 
                       <button
                         onClick={() => handleStartReply(parent)}
-                        className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                        className="flex items-center gap-1 hover:text-blue-600 transition-colors cursor-pointer"
                       >
                         <Reply className="w-3 h-3" />
                         <span>Trả lời</span>
@@ -419,7 +423,7 @@ export default function CommentSection({
                                 {isMyReply && (
                                   <button
                                     onClick={() => handleDeleteComment(reply.id)}
-                                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 transition-all"
+                                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 transition-all cursor-pointer"
                                     title="Xóa bình luận"
                                   >
                                     <Trash2 className="w-3 h-3" />
@@ -441,7 +445,7 @@ export default function CommentSection({
                                 onClick={() =>
                                   handleToggleLikeComment(reply.id, reply.has_liked, reply.likes_count)
                                 }
-                                className={`flex items-center gap-1 hover:text-rose-600 transition-colors ${
+                                className={`flex items-center gap-1 hover:text-rose-600 transition-colors cursor-pointer ${
                                   reply.has_liked ? 'text-rose-600 font-bold' : ''
                                 }`}
                               >
@@ -451,7 +455,7 @@ export default function CommentSection({
 
                               <button
                                 onClick={() => handleStartReply(parent)}
-                                className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                                className="flex items-center gap-1 hover:text-blue-600 transition-colors cursor-pointer"
                               >
                                 <Reply className="w-3 h-3" />
                                 <span>Trả lời</span>
@@ -479,7 +483,7 @@ export default function CommentSection({
               setReplyingTo(null);
               setInputText('');
             }}
-            className="font-bold text-blue-900 hover:underline"
+            className="font-bold text-blue-900 hover:underline cursor-pointer"
           >
             Hủy
           </button>
@@ -497,7 +501,7 @@ export default function CommentSection({
                 key={u.id}
                 type="button"
                 onClick={() => handleSelectMentionUser(u.full_name || 'TLUer')}
-                className="w-full text-left px-2.5 py-1.5 hover:bg-blue-50 rounded-lg flex items-center gap-2 text-xs transition-colors"
+                className="w-full text-left px-2.5 py-1.5 hover:bg-blue-50 rounded-lg flex items-center gap-2 text-xs transition-colors cursor-pointer"
               >
                 <UserAvatar src={u.avatar_url} name={u.full_name} size="sm" />
                 <div className="truncate">

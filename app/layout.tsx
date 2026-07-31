@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Toaster } from 'sonner';
 import { Inter, JetBrains_Mono } from "next/font/google";
 import ChatWidget from '@/components/chat-widget';
 import "./globals.css";
@@ -37,6 +38,7 @@ export default function RootLayout({
         {children}
         {/* ChatWidget tự quản lý auth status & tự lắng nghe event chat */}
         <ChatWidget />
+        <Toaster position="top-right" richColors closeButton />
       </body>
     </html>
   );

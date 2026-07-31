@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { FileText, FileSpreadsheet, Presentation, FileCode, Eye } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Props {
   fileId: string;
@@ -33,7 +34,7 @@ export default function FilePreview({ fileId, fileName, fileExt, onOpenPreview }
     if (onOpenPreview) {
       onOpenPreview();
     } else {
-      alert('Vui lòng đăng nhập và dùng 10 TLU-Coins để xem trực tiếp!');
+      toast.warning('Bạn cần đăng nhập và dùng 10 Coins để xem trực tiếp!');
     }
   };
 

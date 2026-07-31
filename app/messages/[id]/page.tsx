@@ -6,6 +6,7 @@ import UserAvatar from '@/components/user-avatar';
 import Link from 'next/link';
 import { ArrowLeft, Send, Loader2 } from 'lucide-react';
 import UserBadge from '@/components/user-badge';
+import { toast } from 'sonner';
 
 // Helper tính toán trạng thái Online dựa trên last_seen
 function getOnlineStatus(lastSeen: string | null) {
@@ -52,12 +53,20 @@ export default function DirectMessagePage({ params }: { params: Promise<{ id: st
   };
 
   useEffect(() => {
+    let cleanupChat: (() => void) | undefined;
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setCurrentUserId(session.user.id);
-        initChat(session.user.id, targetUserId);
+        initChat(session.user.id, targetUserId).then((cleanup) => {
+          cleanupChat = cleanup;
+        });
       }
     });
+
+    return () => {
+      if (cleanupChat) cleanupChat();
+    };
   }, [targetUserId]);
 
   const initChat = async (myId: string, partnerId: string) => {
@@ -72,7 +81,7 @@ export default function DirectMessagePage({ params }: { params: Promise<{ id: st
 
     if (partnerProfile) setTargetUser(partnerProfile);
 
-    // 💥 FIX LỖI: Chuỗi `.on()` xong xuôi mới gọi `.subscribe()`
+    // Realtime update thông tin Profile / Last Seen người nhận
     const userChannel = supabase
       .channel(`profile-${partnerId}-${Math.random().toString(36).substring(2, 7)}`)
       .on(
@@ -105,27 +114,33 @@ export default function DirectMessagePage({ params }: { params: Promise<{ id: st
       conv = newConv;
     }
 
+    let msgCleanup: (() => void) | undefined;
+
     if (conv) {
       setConversationId(conv.id);
       fetchMessages(conv.id);
-      subscribeRealtimeMessages(conv.id);
+      msgCleanup = subscribeRealtimeMessages(conv.id);
     } else {
       setLoading(false);
     }
 
+    // Trả về hàm dọn dẹp Channel tránh rò rỉ bộ nhớ
     return () => {
       supabase.removeChannel(userChannel);
+      if (msgCleanup) msgCleanup();
     };
   };
 
   const fetchMessages = async (convId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('messages')
       .select('*')
       .eq('conversation_id', convId)
       .order('created_at', { ascending: true });
 
-    if (data) {
+    if (error) {
+      toast.error('Không thể tải tin nhắn!', { description: error.message });
+    } else if (data) {
       setMessages(data);
       setTimeout(scrollToBottom, 100);
     }
@@ -183,8 +198,8 @@ export default function DirectMessagePage({ params }: { params: Promise<{ id: st
         .update({ last_message: text, updated_at: new Date().toISOString() })
         .eq('id', conversationId);
     } catch (err: any) {
-      alert('Không gửi được tin nhắn: ' + err.message);
-      setInputText(text);
+      toast.error('Gửi tin nhắn thất bại!', { description: err.message });
+      setInputText(text); // Hoàn trả lại text nếu lỗi
     } finally {
       setSending(false);
     }
@@ -241,10 +256,10 @@ export default function DirectMessagePage({ params }: { params: Promise<{ id: st
             <p>Hãy gửi lời chào mở bát cuộc trò chuyện ngay thôi.</p>
           </div>
         ) : (
-          messages.map((msg, idx) => {
+          messages.map((msg) => {
             const isMe = msg.sender_id === currentUserId;
             return (
-              <div key={`${msg.id}-${idx}`} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+              <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                 <div
                   className={`max-w-[75%] px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words shadow-2xs ${
                     isMe

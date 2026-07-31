@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import UserAvatar from '@/components/user-avatar';
 import Link from 'next/link';
 import { ArrowLeft, UserPlus, UserCheck, UserX, Loader2, Users } from 'lucide-react';
+import { toast } from 'sonner'; // 💥 IMPORT TOAST BẮT MẮT
 
 export default function FriendsPage() {
   const [requests, setRequests] = useState<any[]>([]);
@@ -24,7 +25,6 @@ export default function FriendsPage() {
   const fetchRequests = async (userId: string) => {
     setLoading(true);
 
-    // Dùng đúng bảng 'friends' và quan hệ 'profiles:sender_id' từ code cũ của mày
     const { data, error } = await supabase
       .from('friends')
       .select(`
@@ -46,6 +46,7 @@ export default function FriendsPage() {
 
     if (error) {
       console.error('Lỗi fetch lời mời kết bạn:', error.message);
+      toast.error('Không thể tải danh sách lời mời!');
     } else if (data) {
       setRequests(data);
     }
@@ -56,17 +57,21 @@ export default function FriendsPage() {
     setProcessingId(requestId);
     try {
       if (status === 'accepted') {
-        await supabase.from('friends').update({ status: 'accepted' }).eq('id', requestId);
+        const { error } = await supabase.from('friends').update({ status: 'accepted' }).eq('id', requestId);
+        if (error) throw error;
+        toast.success('Đã chấp nhận lời mời kết bạn!');
       } else {
-        await supabase.from('friends').delete().eq('id', requestId);
+        const { error } = await supabase.from('friends').delete().eq('id', requestId);
+        if (error) throw error;
+        toast.info('Đã xóa lời mời kết bạn');
       }
 
       setRequests((prev) => prev.filter((req) => req.id !== requestId));
 
-      // Bắn event thông báo re-fetch FriendButton
+      // Bắn event thông báo re-fetch FriendButton toàn hệ thống
       window.dispatchEvent(new Event('friendshipUpdated'));
     } catch (err: any) {
-      alert('Có lỗi xảy ra: ' + err.message);
+      toast.error('Có lỗi xảy ra!', { description: err.message });
     } finally {
       setProcessingId(null);
     }
@@ -131,7 +136,11 @@ export default function FriendsPage() {
                       onClick={() => handleAction(req.id, 'accepted')}
                       className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
                     >
-                      <UserCheck className="w-3.5 h-3.5" />
+                      {processingId === req.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <UserCheck className="w-3.5 h-3.5" />
+                      )}
                       <span>Đồng ý</span>
                     </button>
                     <button

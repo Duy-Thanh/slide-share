@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { PlusCircle, X } from 'lucide-react';
+import { PlusCircle, X, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Props {
   isOpen: boolean;
@@ -34,7 +35,9 @@ export default function UploadModal({
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !title || !subject) return alert('Vui lòng điền đủ thông tin!');
+    if (!file || !title || !subject) {
+      return toast.warning('Vui lòng điền đầy đủ thông tin bắt buộc!');
+    }
 
     setUploading(true);
 
@@ -67,7 +70,9 @@ export default function UploadModal({
       const updatedPoints = userPoints + 20;
       await supabase.from('profiles').update({ points: updatedPoints }).eq('id', userId);
 
-      alert('Đăng bài thành công! +20 TLU-Coins đã được cộng vào tài khoản! 🎉');
+      toast.success('Đăng tài liệu thành công! 🎉', {
+        description: '+20 TLU-Coins đã được cộng vào tài khoản của bạn.',
+      });
 
       // Reset Form
       setFile(null);
@@ -77,7 +82,7 @@ export default function UploadModal({
       onClose();
       onUploadSuccess(updatedPoints);
     } catch (err: any) {
-      alert('Lỗi đăng bài: ' + err.message);
+      toast.error('Lỗi đăng bài!', { description: err.message });
     } finally {
       setUploading(false);
     }
@@ -206,9 +211,16 @@ export default function UploadModal({
             <button
               type="submit"
               disabled={uploading}
-              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-colors disabled:opacity-50 cursor-pointer"
+              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              {uploading ? 'Đang tải lên...' : 'Đăng bài ngay (+20đ)'}
+              {uploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Đang tải lên...</span>
+                </>
+              ) : (
+                <span>Đăng bài ngay (+20đ)</span>
+              )}
             </button>
           </div>
         </form>

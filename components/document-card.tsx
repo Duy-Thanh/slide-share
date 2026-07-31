@@ -11,6 +11,7 @@ import DocPreviewModal from '@/components/doc-preview-modal';
 import FriendButton from '@/components/friend-button';
 import UserBadge from '@/components/user-badge';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 interface Props {
   doc: DocumentItem & {
@@ -63,7 +64,7 @@ export default function DocumentCard({
   // 💥 HELPER TRỪ COINS DÙNG CHUNG KHI XEM TRỰC TIẾP & TẢI VỀ
   const checkAndDeductPoints = async (actionName: string): Promise<boolean> => {
     if (!currentUserId) {
-      alert(`Bạn cần đăng nhập để ${actionName}!`);
+      toast.warning(`Bạn cần đăng nhập để ${actionName}!`);
       return false;
     }
 
@@ -72,7 +73,9 @@ export default function DocumentCard({
 
     // Check số dư Coins
     if (currentUserPoints < 10) {
-      alert(`Bạn không đủ TLU-Coins! Cần 10 Coins để ${actionName}. Hãy đăng tài liệu để nhận thêm xu nhé!`);
+      toast.error('Không đủ Coins!', {
+        description: `Cần 10 Coins để ${actionName}. Hãy đăng tài liệu để nhận thêm xu nhé!`,
+      });
       return false;
     }
 
@@ -88,7 +91,7 @@ export default function DocumentCard({
     if (error) {
       onPointsChange?.(currentUserPoints); // Rollback nếu lỗi DB
       console.error('Lỗi trừ điểm:', error.message);
-      alert('Có lỗi xảy ra khi trừ TLU-Coins!');
+      toast.error('Lỗi hệ thống!', { description: 'Không thể trừ TLU-Coins, thử lại sau nhé!' });
       return false;
     }
 
@@ -120,11 +123,12 @@ export default function DocumentCard({
     document.body.appendChild(a);
     a.click();
     a.remove();
+    toast.success('Bắt đầu tải tài liệu!');
   };
 
   // Xử lý Thả tim Upvote
   const handleToggleUpvote = async () => {
-    if (!currentUserId) return alert('Bạn phải đăng nhập mới thả tim được nhé!');
+    if (!currentUserId) return toast.warning('Bạn phải đăng nhập mới thả tim được nhé!');
 
     const previousUpvoted = upvoted;
     const previousCount = upvoteCount;
@@ -149,13 +153,13 @@ export default function DocumentCard({
     } catch (err) {
       setUpvoted(previousUpvoted);
       setUpvoteCount(previousCount);
-      alert('Không thể thả tim, kiểm tra lại kết nối mạng!');
+      toast.error('Không thể thả tim, kiểm tra lại kết nối mạng!');
     }
   };
 
   // Xử lý Bookmark
   const handleToggleBookmark = async () => {
-    if (!currentUserId) return alert('Đăng nhập để lưu bài viết nhé!');
+    if (!currentUserId) return toast.warning('Đăng nhập để lưu bài viết nhé!');
 
     const previousBookmarked = bookmarked;
     const nextBookmarked = !bookmarked;
@@ -174,6 +178,7 @@ export default function DocumentCard({
           .eq('user_id', currentUserId)
           .eq(idKey, doc.id);
         if (error) throw error;
+        toast.info('Đã bỏ lưu bài viết');
       } else {
         const { error } = await supabase
           .from(tableName)
@@ -182,11 +187,12 @@ export default function DocumentCard({
             { onConflict: `user_id,${idKey}` }
           );
         if (error) throw error;
+        toast.success('Đã lưu bài viết');
       }
     } catch (err: any) {
       setBookmarked(previousBookmarked);
       onToggleBookmark?.(previousBookmarked);
-      alert('Không thể cập nhật trạng thái lưu: ' + err.message);
+      toast.error('Không thể cập nhật trạng thái lưu: ' + err.message);
     }
   };
 
@@ -240,8 +246,10 @@ export default function DocumentCard({
     const tableName = isPostMedia ? 'posts' : 'documents';
     const { error } = await supabase.from(tableName).delete().eq('id', doc.id);
     if (error) {
-      alert('Không xóa được bài viết: ' + error.message);
+      toast.error('Không xóa được bài viết: ' + error.message);
       onRefresh?.();
+    } else {
+      toast.success('Đã xóa bài viết thành công');
     }
   };
 
@@ -336,7 +344,6 @@ export default function DocumentCard({
               {doc.file_size && <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-medium shrink-0">💾 {formatFileSize(doc.file_size)}</span>}
             </div>
 
-            {/* 💥 ĐÃ TRUYỀN THÊM onOpenPreview={handleOpenPreview} CHUẨN ĐÉT */}
             <FilePreview
               fileId={doc.file_id}
               fileName={doc.file_name}
@@ -426,7 +433,7 @@ export default function DocumentCard({
                 : `${baseUrl}/doc/${doc.id}`;
 
               navigator.clipboard.writeText(shareUrl);
-              alert(`Đã sao chép liên kết bài viết:\n${shareUrl}`);
+              toast.success('Đã sao chép liên kết bài viết!', { description: shareUrl });
             }}
             className="flex items-center gap-1 px-2 py-1.5 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer text-slate-500 text-xs font-bold"
             title="Chia sẻ"

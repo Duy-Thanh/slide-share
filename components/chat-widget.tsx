@@ -7,6 +7,7 @@ import UserAvatar from '@/components/user-avatar';
 import UserBadge from '@/components/user-badge';
 import { MessageSquare, X, Send, Loader2, Minus, Maximize2 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 export default function ChatWidget() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -119,13 +120,17 @@ export default function ChatWidget() {
     if (conv) {
       setConversationId(conv.id);
 
-      const { data: msgData } = await supabase
+      const { data: msgData, error } = await supabase
         .from('messages')
         .select('*')
         .eq('conversation_id', conv.id)
         .order('created_at', { ascending: true });
 
-      if (msgData) setMessages(msgData);
+      if (error) {
+        toast.error('Không thể tải tin nhắn!', { description: error.message });
+      } else if (msgData) {
+        setMessages(msgData);
+      }
     }
 
     setLoading(false);
@@ -157,7 +162,7 @@ export default function ChatWidget() {
         .eq('id', conversationId);
 
     } catch (err: any) {
-      alert('Không gửi được tin nhắn: ' + err.message);
+      toast.error('Gửi tin nhắn thất bại!', { description: err.message });
       setInputMessage(text);
     } finally {
       setSending(false);
@@ -254,6 +259,7 @@ export default function ChatWidget() {
               placeholder="Nhập tin nhắn..."
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
+              disabled={sending}
               className="flex-1 px-3 py-1.5 text-xs bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-900"
             />
             <button
@@ -261,7 +267,7 @@ export default function ChatWidget() {
               disabled={!inputMessage.trim() || sending}
               className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors disabled:opacity-40 shrink-0 cursor-pointer"
             >
-              <Send className="w-3.5 h-3.5" />
+              {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
             </button>
           </form>
         </>
