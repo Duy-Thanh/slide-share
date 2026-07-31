@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { DocumentItem, CommentItem } from '@/types/database';
+import { DocumentItem } from '@/types/database';
 import FilePreview from '@/components/file-preview';
 import { Heart, Bookmark, Eye, Download, MessageSquare, Trash2, Share2 } from 'lucide-react';
 import UserAvatar from '@/components/user-avatar';
@@ -43,11 +43,7 @@ export default function DocumentCard({
 
   // State Comment & Preview
   const [showComments, setShowComments] = useState(false);
-  const [comments, setComments] = useState<CommentItem[]>([]);
   const [commentsCount, setCommentsCount] = useState<number>(doc.comments_count || 0);
-  const [newComment, setNewComment] = useState('');
-  const [loadingComments, setLoadingComments] = useState(false);
-  const [sendingComment, setSendingComment] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Phân biệt bài đăng Social Post hay Tài liệu File
@@ -98,7 +94,7 @@ export default function DocumentCard({
     return true;
   };
 
-  // 💥 Xem trực tiếp (Preview) -> Thu 10 Coins
+  // 💥 Xem trực tiếp (Preview Modal) -> Thu 10 Coins
   const handleOpenPreview = async () => {
     const success = await checkAndDeductPoints('xem trực tiếp tài liệu');
     if (success) {
@@ -194,25 +190,6 @@ export default function DocumentCard({
       onToggleBookmark?.(previousBookmarked);
       toast.error('Không thể cập nhật trạng thái lưu: ' + err.message);
     }
-  };
-
-  // Lấy danh sách Comment
-  const fetchComments = async () => {
-    if (!showComments) {
-      setLoadingComments(true);
-      const { data } = await supabase
-        .from('comments')
-        .select('*, profiles(*)')
-        .eq('document_id', doc.id)
-        .order('created_at', { ascending: true });
-
-      if (data) {
-        setComments(data as any);
-        setCommentsCount(data.length);
-      }
-      setLoadingComments(false);
-    }
-    setShowComments(!showComments);
   };
 
   const formatFileSize = (bytes: number) => {
@@ -344,6 +321,7 @@ export default function DocumentCard({
               {doc.file_size && <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-medium shrink-0">💾 {formatFileSize(doc.file_size)}</span>}
             </div>
 
+            {/* Banner Pure CSS SIÊU NHẸ (Không load Iframe tự động nữa) */}
             <FilePreview
               fileId={doc.file_id}
               fileName={doc.file_name}
@@ -402,7 +380,7 @@ export default function DocumentCard({
           </button>
 
           <button
-            onClick={fetchComments}
+            onClick={() => setShowComments(!showComments)}
             className={`flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2 py-1.5 rounded-lg transition-colors cursor-pointer ${
               showComments ? 'bg-blue-50 text-blue-600' : 'text-slate-500 hover:bg-slate-100'
             }`}
