@@ -14,8 +14,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TLU Social - Mạng xã hội chia sẻ tài liệu Thủy Lợi",
-  description: "Mạng xã hội chia sẻ tài liệu, đề thi và slide bài giảng dành riêng cho sinh viên Đại học Thủy Lợi",
+  title: "Sonder - Mạng xã hội chia sẻ tài liệu",
+  description: "Mạng xã hội chia sẻ tài liệu, đề thi và slide bài giảng dành riêng cho sinh viên",
   icons: {
     icon: "/logo-tlu.png",
     shortcut: "/logo-tlu.png",
