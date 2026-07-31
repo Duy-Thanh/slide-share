@@ -2,9 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { DocumentItem } from '@/types/database';
-import FilePreview from '@/components/file-preview';
-import { Heart, Bookmark, Eye, Download, MessageSquare, Trash2, Share2 } from 'lucide-react';
+import { DocumentItem, CommentItem } from '@/types/database';
+import { 
+  Heart, 
+  Bookmark, 
+  Eye, 
+  Download, 
+  MessageSquare, 
+  Trash2, 
+  Share2, 
+  FileText, 
+  FileSpreadsheet, 
+  Presentation, 
+  FileCode 
+} from 'lucide-react';
 import UserAvatar from '@/components/user-avatar';
 import CommentSection from '@/components/comment-section';
 import DocPreviewModal from '@/components/doc-preview-modal';
@@ -41,7 +52,7 @@ export default function DocumentCard({
   const [upvoteCount, setUpvoteCount] = useState(doc.upvotes_count || 0);
   const [bookmarked, setBookmarked] = useState(doc.has_bookmarked || false);
 
-  // State Comment & Preview
+  // State Comment & Preview Modal
   const [showComments, setShowComments] = useState(false);
   const [commentsCount, setCommentsCount] = useState<number>(doc.comments_count || 0);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -57,7 +68,7 @@ export default function DocumentCard({
     setCommentsCount(doc.comments_count || 0);
   }, [doc.has_upvoted, doc.upvotes_count, doc.has_bookmarked, doc.id, doc.comments_count, currentUserId]);
 
-  // 💥 HELPER TRỪ COINS DÙNG CHUNG KHI XEM TRỰC TIẾP & TẢI VỀ
+  // HELPER TRỪ COINS DÙNG CHUNG KHI XEM TRỰC TIẾP & TẢI VỀ
   const checkAndDeductPoints = async (actionName: string): Promise<boolean> => {
     if (!currentUserId) {
       toast.warning(`Bạn cần đăng nhập để ${actionName}!`);
@@ -94,7 +105,7 @@ export default function DocumentCard({
     return true;
   };
 
-  // 💥 Xem trực tiếp (Preview Modal) -> Thu 10 Coins
+  // Xem trực tiếp (Preview) -> Thu 10 Coins
   const handleOpenPreview = async () => {
     const success = await checkAndDeductPoints('xem trực tiếp tài liệu');
     if (success) {
@@ -102,7 +113,7 @@ export default function DocumentCard({
     }
   };
 
-  // 💥 Tải File -> Thu 10 Coins
+  // Tải File -> Thu 10 Coins
   const handleDownload = async () => {
     const success = await checkAndDeductPoints('tải tài liệu');
     if (!success) return;
@@ -192,6 +203,10 @@ export default function DocumentCard({
     }
   };
 
+  const toggleCommentsView = () => {
+    setShowComments(!showComments);
+  };
+
   const formatFileSize = (bytes: number) => {
     if (!bytes || bytes === 0) return '0 KB';
     const k = 1024;
@@ -215,6 +230,43 @@ export default function DocumentCard({
       return <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/60 rounded font-bold shrink-0">📊 SLIDE</span>;
     }
     return <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200/60 rounded font-bold shrink-0">📁 FILE</span>;
+  };
+
+  const getDocBannerStyle = (fileName: string, fileExt?: string) => {
+    const ext = (fileExt || fileName?.split('.').pop() || '').toLowerCase();
+    if (['xlsx', 'xls', 'csv'].includes(ext)) {
+      return {
+        bg: 'bg-gradient-to-br from-emerald-500 to-teal-700',
+        icon: <FileSpreadsheet className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-100 opacity-80" />,
+        label: 'EXCEL SPREADSHEET',
+      };
+    }
+    if (['docx', 'doc'].includes(ext)) {
+      return {
+        bg: 'bg-gradient-to-br from-blue-600 to-indigo-800',
+        icon: <FileText className="w-8 h-8 sm:w-10 sm:h-10 text-blue-100 opacity-80" />,
+        label: 'WORD DOCUMENT',
+      };
+    }
+    if (['pptx', 'ppt'].includes(ext)) {
+      return {
+        bg: 'bg-gradient-to-br from-amber-500 to-orange-700',
+        icon: <Presentation className="w-8 h-8 sm:w-10 sm:h-10 text-amber-100 opacity-80" />,
+        label: 'POWERPOINT SLIDE',
+      };
+    }
+    if (['pdf'].includes(ext)) {
+      return {
+        bg: 'bg-gradient-to-br from-rose-600 to-red-800',
+        icon: <FileText className="w-8 h-8 sm:w-10 sm:h-10 text-rose-100 opacity-80" />,
+        label: 'PDF DOCUMENT',
+      };
+    }
+    return {
+      bg: 'bg-gradient-to-br from-slate-600 to-slate-800',
+      icon: <FileCode className="w-8 h-8 sm:w-10 sm:h-10 text-slate-200 opacity-80" />,
+      label: 'TÀI LIỆU TLU',
+    };
   };
 
   const handleDelete = async () => {
@@ -311,7 +363,7 @@ export default function DocumentCard({
           </p>
         )}
 
-        {/* FILE HỌC TẬP (NẾU CÓ FILE ID) */}
+        {/* BANNER TĨNH TÀI LIỆU (OPTIMIZED - KHÔNG PHÁT REQUEST IFRAME TỰ ĐỘNG) */}
         {doc.file_id && (
           <div className="space-y-2 pt-1">
             <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-[11px]">
@@ -321,13 +373,37 @@ export default function DocumentCard({
               {doc.file_size && <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-medium shrink-0">💾 {formatFileSize(doc.file_size)}</span>}
             </div>
 
-            {/* Banner Pure CSS SIÊU NHẸ (Không load Iframe tự động nữa) */}
-            <FilePreview
-              fileId={doc.file_id}
-              fileName={doc.file_name}
-              fileExt={doc.file_ext}
-              onOpenPreview={handleOpenPreview}
-            />
+            {/* Static Card Banner View */}
+            {(() => {
+              const style = getDocBannerStyle(doc.file_name, doc.file_ext);
+              return (
+                <div className={`w-full h-36 ${style.bg} rounded-xl p-4 text-white flex flex-col justify-between shadow-inner relative overflow-hidden group`}>
+                  <div className="flex justify-between items-start z-10">
+                    <span className="text-[10px] font-black tracking-wider bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-md uppercase">
+                      {style.label}
+                    </span>
+                    {style.icon}
+                  </div>
+
+                  <div className="z-10 flex items-end justify-between gap-2">
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      <p className="font-bold text-xs sm:text-sm line-clamp-1 drop-shadow-sm">{doc.file_name}</p>
+                      <p className="text-[10px] sm:text-[11px] opacity-80 font-medium truncate">Cần 10 TLU-Coins để mở trọn bộ file</p>
+                    </div>
+
+                    <button
+                      onClick={handleOpenPreview}
+                      className="px-3.5 py-1.5 bg-white/20 hover:bg-white/30 active:scale-95 backdrop-blur-md text-white font-bold text-xs rounded-xl transition-all shrink-0 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Xem trước (-10đ)</span>
+                    </button>
+                  </div>
+
+                  <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -365,7 +441,7 @@ export default function DocumentCard({
         )}
       </div>
 
-      {/* 📱 ACTION BAR FULL RESPONSIVE */}
+      {/* ACTION BAR FULL RESPONSIVE */}
       <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
         {/* Nhóm tương tác góc trái: Like, Comment, Bookmark */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
@@ -380,7 +456,7 @@ export default function DocumentCard({
           </button>
 
           <button
-            onClick={() => setShowComments(!showComments)}
+            onClick={toggleCommentsView}
             className={`flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2 py-1.5 rounded-lg transition-colors cursor-pointer ${
               showComments ? 'bg-blue-50 text-blue-600' : 'text-slate-500 hover:bg-slate-100'
             }`}
@@ -442,6 +518,7 @@ export default function DocumentCard({
                 <span className="sm:hidden">-10đ</span>
               </button>
 
+              {/* Modal Xem Trực Tiếp On-Demand */}
               <DocPreviewModal
                 isOpen={isPreviewOpen}
                 onClose={() => setIsPreviewOpen(false)}
