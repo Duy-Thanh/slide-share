@@ -31,7 +31,8 @@ import {
   Image as ImageIcon,
   MessageSquareText,
   MessageCircle,
-  UserPlus
+  UserPlus,
+  ShieldCheck
 } from 'lucide-react';
 
 const PAGE_SIZE = 10;
@@ -541,7 +542,7 @@ export default function HomePage() {
                     </button>
 
                     {isProfileMenuOpen && (
-                      <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                         <Link
                           href="/profile"
                           onClick={() => setIsProfileMenuOpen(false)}
@@ -549,6 +550,15 @@ export default function HomePage() {
                         >
                           <UserAvatar src={profile.avatar_url} name={profile.full_name} size="sm" />
                           <span className="truncate">Trang cá nhân</span>
+                        </Link>
+
+                        <Link
+                          href="/guidelines"
+                          onClick={() => setIsProfileMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors mt-0.5"
+                        >
+                          <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                          <span className="truncate">Quy tắc cộng đồng</span>
                         </Link>
 
                         <button
@@ -596,10 +606,10 @@ export default function HomePage() {
         )}
       </header>
 
-      {/* CONTAINER CHÍNH CHUẨN GRID: Tất cả nằm trong 1 Grid, đéo bao giờ lo bị xô lệch tọa độ ngang */}
+      {/* CONTAINER CHÍNH CHUẨN GRID */}
       <div className="max-w-7xl mx-auto px-2 sm:px-4 grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6 items-start">
         
-        {/* CỘT 1: LEFT SIDEBAR - Khóa sticky ngay từ mốc dưới Header, nội dung đẩy thụt xuống bằng pt-4 */}
+        {/* CỘT 1: LEFT SIDEBAR */}
         <div className="hidden md:block sticky top-[70px] h-[calc(100vh-70px)] overflow-y-auto no-scrollbar pt-4 sm:pt-6 pb-6">
           <aside className="space-y-4">
             {user && profile && (
@@ -690,7 +700,7 @@ export default function HomePage() {
           </aside>
         </div>
 
-        {/* CỘT 2 & 3: MAIN FEED - Tự động đẩy nội dung thụt xuống bằng pt-4 cho thẳng hàng tăm tắp với 2 bên Sidebar */}
+        {/* CỘT 2 & 3: MAIN FEED */}
         <section className="md:col-span-2 min-w-0 space-y-4 pt-4 sm:pt-6 pb-20 md:pb-6">
           <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-medium">
             {['Tất cả', 'CNTT', 'Thủy Lợi', 'Công Trình', 'Kinh Tế', 'Cơ Điện', 'Môi Trường'].map((fac) => (
@@ -840,7 +850,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* CỘT 4: RIGHT SIDEBAR - Khóa sticky tương tự cột 1 */}
+        {/* CỘT 4: RIGHT SIDEBAR */}
         <div className="hidden md:block sticky top-[70px] h-[calc(100vh-70px)] overflow-y-auto no-scrollbar pt-4 sm:pt-6 pb-6">
           <aside className="space-y-4">
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
@@ -1042,7 +1052,7 @@ export default function HomePage() {
           </button>
 
           {isBottomMenuOpen && user && (
-            <div className="absolute right-1 bottom-16 z-50 w-48 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-150">
+            <div className="absolute right-1 bottom-16 z-50 w-52 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-150">
               <Link
                 href="/profile"
                 onClick={() => setIsBottomMenuOpen(false)}
@@ -1050,6 +1060,15 @@ export default function HomePage() {
               >
                 <UserAvatar src={profile?.avatar_url} name={profile?.full_name} size="sm" />
                 <span className="truncate">Trang cá nhân</span>
+              </Link>
+
+              <Link
+                href="/guidelines"
+                onClick={() => setIsBottomMenuOpen(false)}
+                className="mt-0.5 flex items-center gap-2.5 rounded-xl px-3 py-2 font-bold text-xs text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600"
+              >
+                <ShieldCheck className="h-4 w-4 shrink-0 text-blue-600" />
+                <span className="truncate">Tiêu chuẩn cộng đồng</span>
               </Link>
 
               <button
