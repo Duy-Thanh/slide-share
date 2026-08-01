@@ -13,6 +13,7 @@ import Link from 'next/link';
 import FriendRequestsPopover from '@/components/friend-requests-popover';
 import UserBadge from '@/components/user-badge';
 import ChatListPopover from '@/components/chat-list-popover';
+import BetaBanner from '@/components/beta-banner';
 import {
   Search,
   LogIn,
@@ -36,38 +37,31 @@ import {
 const PAGE_SIZE = 10;
 
 export default function HomePage() {
-  // Feed Type: 'docs' hoặc 'social'
   const [feedType, setFeedType] = useState<'docs' | 'social'>('docs');
 
-  // Feed Data States
   const [docItems, setDocItems] = useState<any[]>([]);
   const [postItems, setPostItems] = useState<any[]>([]);
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [user, setUser] = useState<any>(null);
 
-  // Modals State
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
 
-  // Infinite Scroll States
   const [hasMoreDocs, setHasMoreDocs] = useState(true);
   const [hasMorePosts, setHasMorePosts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
 
-  // Ref khóa phanh Observer chống trigger trùng lặp (Infinite Loop Fix)
   const isFetchingRef = useRef(false);
 
-  // Filter States cho Tab Tài Liệu
   const [search, setSearch] = useState('');
   const [selectedFaculty, setSelectedFaculty] = useState('Tất cả');
   const [selectedDocType, setSelectedDocType] = useState('Tất cả');
   const [activeTab, setActiveTab] = useState<'newest' | 'popular' | 'bookmarked'>('newest');
 
-  // Widgets Data
   const [topContributors, setTopContributors] = useState<Profile[]>([]);
   const [trendingSubjects, setTrendingSubjects] = useState<string[]>([]);
 
@@ -81,13 +75,11 @@ export default function HomePage() {
 
   const observerTarget = useRef<HTMLDivElement | null>(null);
 
-  // 💥 XỬ LÝ ĐĂNG XUẤT: Gán last_seen = thời gian trước đó 3 phút để lập tức nhảy sang "Hoạt động 3 phút trước"
   const handleSignOut = async () => {
     setIsProfileMenuOpen(false);
     setIsBottomMenuOpen(false);
 
     if (user?.id) {
-      // Lưu thời gian chính xác lúc vừa bấm đăng xuất
       await supabase
         .from('profiles')
         .update({ last_seen: new Date().toISOString() })
@@ -125,7 +117,6 @@ export default function HomePage() {
     }
   };
 
-  // 💥 HEARTBEAT BẮN LAST_SEEN & EVENT KHI ĐÓNG TAB
   useEffect(() => {
     if (!user?.id) return;
 
@@ -139,7 +130,6 @@ export default function HomePage() {
     updateHeartbeat();
     const interval = setInterval(updateHeartbeat, 60 * 1000);
 
-    // Khi đóng tab: Ghi nhận thời gian offline lùi 3 phút để chuyển ngay sang "Hoạt động X phút trước"
     const handleUnload = () => {
       if (user?.id) {
         const offlineTime = new Date(Date.now() - 185 * 1000).toISOString();
@@ -178,7 +168,6 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch & subscribe đếm lời mời kết bạn
   useEffect(() => {
     if (!user?.id) return;
 
@@ -235,7 +224,6 @@ export default function HomePage() {
     if (data) setTopContributors(data);
   };
 
-  // 💥 FETCH TÀI LIỆU HỌC TẬP (DOCS)
   const fetchDocs = useCallback(
     async (isFirstLoad = false) => {
       if (isFetchingRef.current) return;
@@ -315,7 +303,6 @@ export default function HomePage() {
     [docItems, hasMoreDocs]
   );
 
-  // 💥 FETCH BẢNG TIN BÀI ĐĂNG (POSTS)
   const fetchPosts = useCallback(
     async (isFirstLoad = false) => {
       if (isFetchingRef.current) return;
@@ -398,7 +385,6 @@ export default function HomePage() {
     [postItems, hasMorePosts]
   );
 
-  // Switch Tab / Filter
   useEffect(() => {
     isFetchingRef.current = false;
     if (feedType === 'docs') {
@@ -410,7 +396,6 @@ export default function HomePage() {
     }
   }, [feedType, activeTab, selectedFaculty, selectedDocType]);
 
-  // Filter cho Tài liệu
   const filteredDocs = docItems
     .filter((doc) => {
       const matchSearch =
@@ -430,7 +415,6 @@ export default function HomePage() {
   const currentHasMore = feedType === 'docs' ? hasMoreDocs : hasMorePosts;
   const currentFeedList = feedType === 'docs' ? filteredDocs : postItems;
 
-  // OBSERVER CHỦ ĐỘNG KHÓA KHI ĐANG FETCH
   useEffect(() => {
     const element = observerTarget.current;
     if (!element) return;
@@ -479,16 +463,15 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-[#f0f2f5] text-slate-800" suppressHydrationWarning>
-      {/* 🟢 TOPBAR */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs px-2 sm:px-4 py-2">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4">
-          
-          {/* LOGO */}
+      {/* HEADER */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
+        <BetaBanner />
+
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 flex items-center justify-between gap-1.5 sm:gap-4">
           <Link href="/" className="flex items-center gap-1.5 shrink-0">
             <img src="/logo-tlu.png" alt="logo" className="h-7 sm:h-9 w-auto object-contain" />
           </Link>
 
-          {/* TAB SWITCHER: CHỈ HIỆN TRÊN DESKTOP (md:flex) */}
           <div className="hidden md:flex items-center bg-slate-100 p-1 rounded-2xl text-xs font-bold shrink-0">
             <button
               onClick={() => setFeedType('docs')}
@@ -515,7 +498,6 @@ export default function HomePage() {
             </button>
           </div>
 
-          {/* Ô TÌM KIẾM DESKTOP */}
           <div className="flex-1 max-w-xs relative hidden xl:block">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <input
@@ -527,9 +509,7 @@ export default function HomePage() {
             />
           </div>
 
-          {/* RIGHT ACTIONS */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* NÚT TÌM KIẾM MOBILE */}
             <button
               onClick={() => setShowMobileSearch(!showMobileSearch)}
               className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-full xl:hidden cursor-pointer"
@@ -539,13 +519,11 @@ export default function HomePage() {
 
             {user && profile ? (
               <>
-                {/* COIN (HIỆN CẢ MOBILE LẪN DESKTOP) */}
                 <div className="flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-300/60 rounded-full text-amber-700 text-[11px] font-bold">
                   <Coins className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                   <span>{profile.points}</span>
                 </div>
 
-                {/* DESKTOP POPOVERS (TIN NHẮN, KẾT BẠN, AVATAR CHỈ HIỆN TRÊN DESKTOP: sm:flex) */}
                 <div className="hidden sm:flex items-center gap-2">
                   <ChatListPopover currentUserId={user?.id} />
                   <FriendRequestsPopover currentUserId={user?.id} />
@@ -562,7 +540,6 @@ export default function HomePage() {
                       </div>
                     </button>
 
-                    {/* DROPDOWN MENU KHI CLICK AVATAR (DESKTOP) */}
                     {isProfileMenuOpen && (
                       <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                         <Link
@@ -597,9 +574,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* SEARCH MOBILE DROPDOWN */}
         {showMobileSearch && (
-          <div className="mt-2 xl:hidden animate-in slide-in-from-top-2 duration-200">
+          <div className="px-2 pb-2 xl:hidden animate-in slide-in-from-top-2 duration-200">
             <div className="relative">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <input
@@ -620,99 +596,102 @@ export default function HomePage() {
         )}
       </header>
 
-      {/* CONTAINER CHÍNH */}
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-6 grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6 items-start">
-        {/* CỘT 1: LEFT SIDEBAR */}
-        <aside className="hidden md:block space-y-4 sticky top-20 h-fit">
-          {user && profile && (
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-              <div className="flex items-center gap-3">
-                <UserAvatar src={profile.avatar_url} name={profile.full_name} size="lg" />
-                <div className="truncate min-w-0">
-                  <div className="flex items-center gap-1 truncate">
-                    <p className="font-bold text-sm text-slate-800 truncate">{profile.full_name || 'Sinh viên'}</p>
-                    <UserBadge badge={profile.badge} size="sm" />
+      {/* CONTAINER CHÍNH CHUẨN GRID: Tất cả nằm trong 1 Grid, đéo bao giờ lo bị xô lệch tọa độ ngang */}
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6 items-start">
+        
+        {/* CỘT 1: LEFT SIDEBAR - Khóa sticky ngay từ mốc dưới Header, nội dung đẩy thụt xuống bằng pt-4 */}
+        <div className="hidden md:block sticky top-[70px] h-[calc(100vh-70px)] overflow-y-auto no-scrollbar pt-4 sm:pt-6 pb-6">
+          <aside className="space-y-4">
+            {user && profile && (
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="flex items-center gap-3">
+                  <UserAvatar src={profile.avatar_url} name={profile.full_name} size="lg" />
+                  <div className="truncate min-w-0">
+                    <div className="flex items-center gap-1 truncate">
+                      <p className="font-bold text-sm text-slate-800 truncate">{profile.full_name || 'Sinh viên'}</p>
+                      <UserBadge badge={profile.badge} size="sm" />
+                    </div>
+                    <p className="text-xs text-slate-500 truncate">{profile.faculty ? `Khoa ${profile.faculty}` : 'Chưa cập nhật Khoa'}</p>
                   </div>
-                  <p className="text-xs text-slate-500 truncate">{profile.faculty ? `Khoa ${profile.faculty}` : 'Chưa cập nhật Khoa'}</p>
                 </div>
+
+                <div className="pt-2 border-t border-slate-100 flex justify-between text-xs text-slate-600 font-semibold">
+                  <span>Kho Coins:</span>
+                  <span className="text-amber-600 font-bold">{profile.points} 🪙</span>
+                </div>
+
+                <Link href="/profile" className="block text-center w-full py-2 bg-slate-100 hover:bg-blue-50 text-blue-700 font-bold text-xs rounded-xl transition-colors">
+                  Trang cá nhân
+                </Link>
               </div>
+            )}
 
-              <div className="pt-2 border-t border-slate-100 flex justify-between text-xs text-slate-600 font-semibold">
-                <span>Kho Coins:</span>
-                <span className="text-amber-600 font-bold">{profile.points} 🪙</span>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
+              <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-1">Lối tắt</p>
+              <button
+                onClick={() => {
+                  setFeedType('docs');
+                  setActiveTab('newest');
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  feedType === 'docs' && activeTab === 'newest' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                <span>Bảng tin mới nhất</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setFeedType('docs');
+                  setActiveTab('popular');
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  feedType === 'docs' && activeTab === 'popular' ? 'bg-rose-50 text-rose-600' : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Flame className="w-4 h-4 text-rose-500" />
+                <span>Đề thi & Slide Hot</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setFeedType('docs');
+                  setActiveTab('bookmarked');
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  feedType === 'docs' && activeTab === 'bookmarked' ? 'bg-amber-50 text-amber-700' : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Bookmark className="w-4 h-4 text-amber-500" />
+                <span>Bài viết đã lưu</span>
+              </button>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
+              <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-1">Các khoa/ngành</p>
+              <div className="space-y-1">
+                {['Tất cả', 'CNTT', 'Thủy Lợi', 'Công Trình', 'Kinh Tế', 'Cơ Điện', 'Môi Trường'].map((fac) => (
+                  <button
+                    key={fac}
+                    onClick={() => {
+                      setFeedType('docs');
+                      setSelectedFaculty(fac);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                      feedType === 'docs' && selectedFaculty === fac ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {fac === 'Tất cả' ? '🌐 Tất cả các Khoa' : `🎓 Khoa ${fac}`}
+                  </button>
+                ))}
               </div>
-
-              <Link href="/profile" className="block text-center w-full py-2 bg-slate-100 hover:bg-blue-50 text-blue-700 font-bold text-xs rounded-xl transition-colors">
-                Trang cá nhân
-              </Link>
             </div>
-          )}
+          </aside>
+        </div>
 
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-            <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-1">Lối tắt</p>
-            <button
-              onClick={() => {
-                setFeedType('docs');
-                setActiveTab('newest');
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                feedType === 'docs' && activeTab === 'newest' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <Sparkles className="w-4 h-4 text-blue-600" />
-              <span>Bảng tin mới nhất</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setFeedType('docs');
-                setActiveTab('popular');
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                feedType === 'docs' && activeTab === 'popular' ? 'bg-rose-50 text-rose-600' : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <Flame className="w-4 h-4 text-rose-500" />
-              <span>Đề thi & Slide Hot</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setFeedType('docs');
-                setActiveTab('bookmarked');
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                feedType === 'docs' && activeTab === 'bookmarked' ? 'bg-amber-50 text-amber-700' : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <Bookmark className="w-4 h-4 text-amber-500" />
-              <span>Bài viết đã lưu</span>
-            </button>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-            <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-1">Các khoa/ngành</p>
-            <div className="space-y-1">
-              {['Tất cả', 'CNTT', 'Thủy Lợi', 'Công Trình', 'Kinh Tế', 'Cơ Điện', 'Môi Trường'].map((fac) => (
-                <button
-                  key={fac}
-                  onClick={() => {
-                    setFeedType('docs');
-                    setSelectedFaculty(fac);
-                  }}
-                  className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                    feedType === 'docs' && selectedFaculty === fac ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  {fac === 'Tất cả' ? '🌐 Tất cả các Khoa' : `🎓 Khoa ${fac}`}
-                </button>
-              ))}
-            </div>
-          </div>
-        </aside>
-
-        {/* CỘT 2 & 3: MAIN FEED */}
-        <section className="md:col-span-2 space-y-4 min-w-0">
+        {/* CỘT 2 & 3: MAIN FEED - Tự động đẩy nội dung thụt xuống bằng pt-4 cho thẳng hàng tăm tắp với 2 bên Sidebar */}
+        <section className="md:col-span-2 min-w-0 space-y-4 pt-4 sm:pt-6 pb-20 md:pb-6">
           <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-medium">
             {['Tất cả', 'CNTT', 'Thủy Lợi', 'Công Trình', 'Kinh Tế', 'Cơ Điện', 'Môi Trường'].map((fac) => (
               <button
@@ -730,7 +709,6 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* KHUNG TẠO BÀI VIẾT */}
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <div className="flex items-center gap-3">
               <UserAvatar src={profile?.avatar_url} name={profile?.full_name} size="md" />
@@ -775,7 +753,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* BỘ LỌC TABS (CHỈ HIỆN KHI Ở TAB TÀI LIỆU) */}
           {feedType === 'docs' && (
             <div className="flex items-center justify-between bg-white p-2 rounded-2xl border border-slate-200 shadow-xs text-xs font-bold overflow-x-auto no-scrollbar gap-2">
               <div className="flex items-center gap-1 shrink-0">
@@ -823,7 +800,6 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* FEED HÀNG HÓA */}
           <div className="space-y-4">
             {initialLoading ? (
               <div className="bg-white text-center py-12 rounded-2xl border border-slate-200 text-slate-400 text-xs font-semibold flex items-center justify-center gap-2">
@@ -850,7 +826,6 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* OBSERVER LOAD MORE */}
             <div ref={observerTarget} className="py-4 text-center min-h-[40px]">
               {loadingMore && (
                 <div className="flex items-center justify-center gap-2 text-xs font-bold text-slate-500">
@@ -865,88 +840,90 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* CỘT 4: RIGHT SIDEBAR */}
-        <aside className="hidden md:block space-y-4 sticky top-20 h-fit">
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-            <div className="flex items-center gap-2 text-amber-600 font-extrabold text-xs uppercase tracking-wider">
-              <Award className="w-4 h-4 text-amber-500" />
-              <span>Top đóng góp</span>
+        {/* CỘT 4: RIGHT SIDEBAR - Khóa sticky tương tự cột 1 */}
+        <div className="hidden md:block sticky top-[70px] h-[calc(100vh-70px)] overflow-y-auto no-scrollbar pt-4 sm:pt-6 pb-6">
+          <aside className="space-y-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+              <div className="flex items-center gap-2 text-amber-600 font-extrabold text-xs uppercase tracking-wider">
+                <Award className="w-4 h-4 text-amber-500" />
+                <span>Top đóng góp</span>
+              </div>
+
+              <div className="space-y-2.5">
+                {topContributors.map((userItem, idx) => (
+                  <div key={userItem.id} className="flex items-center justify-between text-xs group">
+                    <Link
+                      href={userItem.id === user?.id ? '/profile' : `/profile/${userItem.id}`}
+                      className="flex items-center gap-2 truncate flex-1 mr-2 min-w-0"
+                    >
+                      <span
+                        className={`w-5 h-5 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 ${
+                          idx === 0
+                            ? 'bg-amber-400 text-white'
+                            : idx === 1
+                            ? 'bg-slate-300 text-slate-700'
+                            : idx === 2
+                            ? 'bg-amber-700/60 text-white'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        {idx + 1}
+                      </span>
+                      <UserAvatar src={userItem.avatar_url} name={userItem.full_name} size="sm" />
+                      
+                      <div className="flex items-center gap-1 truncate min-w-0">
+                        <span className="font-bold text-slate-800 truncate group-hover:text-blue-600 transition-colors">
+                          {userItem.full_name || 'Sinh viên TLU'}
+                        </span>
+                        <UserBadge badge={userItem.badge} size="sm" />
+                      </div>
+                    </Link>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="font-extrabold text-amber-600 text-[11px]">{userItem.points} 🪙</span>
+                      <FriendButton currentUserId={user?.id} targetUserId={userItem.id} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="space-y-2.5">
-              {topContributors.map((userItem, idx) => (
-                <div key={userItem.id} className="flex items-center justify-between text-xs group">
-                  <Link
-                    href={userItem.id === user?.id ? '/profile' : `/profile/${userItem.id}`}
-                    className="flex items-center gap-2 truncate flex-1 mr-2 min-w-0"
-                  >
-                    <span
-                      className={`w-5 h-5 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 ${
-                        idx === 0
-                          ? 'bg-amber-400 text-white'
-                          : idx === 1
-                          ? 'bg-slate-300 text-slate-700'
-                          : idx === 2
-                          ? 'bg-amber-700/60 text-white'
-                          : 'bg-slate-100 text-slate-500'
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+              <div className="flex items-center gap-2 text-blue-600 font-extrabold text-xs uppercase tracking-wider">
+                <TrendingUp className="w-4 h-4" />
+                <span>Môn Học Phổ Biến</span>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {trendingSubjects.length > 0 ? (
+                  trendingSubjects.map((subject) => (
+                    <button
+                      key={subject}
+                      onClick={() => handleSelectSubject(subject)}
+                      className={`px-2.5 py-1 font-bold text-[11px] rounded-lg transition-all cursor-pointer ${
+                        search.toLowerCase() === subject.toLowerCase()
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600'
                       }`}
                     >
-                      {idx + 1}
-                    </span>
-                    <UserAvatar src={userItem.avatar_url} name={userItem.full_name} size="sm" />
-                    
-                    <div className="flex items-center gap-1 truncate min-w-0">
-                      <span className="font-bold text-slate-800 truncate group-hover:text-blue-600 transition-colors">
-                        {userItem.full_name || 'Sinh viên TLU'}
-                      </span>
-                      <UserBadge badge={userItem.badge} size="sm" />
-                    </div>
-                  </Link>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="font-extrabold text-amber-600 text-[11px]">{userItem.points} 🪙</span>
-                    <FriendButton currentUserId={user?.id} targetUserId={userItem.id} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-            <div className="flex items-center gap-2 text-blue-600 font-extrabold text-xs uppercase tracking-wider">
-              <TrendingUp className="w-4 h-4" />
-              <span>Môn Học Phổ Biến</span>
+                      #{subject}
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-[11px] text-slate-400 font-medium">Chưa có dữ liệu môn học.</p>
+                )}
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-1.5">
-              {trendingSubjects.length > 0 ? (
-                trendingSubjects.map((subject) => (
-                  <button
-                    key={subject}
-                    onClick={() => handleSelectSubject(subject)}
-                    className={`px-2.5 py-1 font-bold text-[11px] rounded-lg transition-all cursor-pointer ${
-                      search.toLowerCase() === subject.toLowerCase()
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600'
-                    }`}
-                  >
-                    #{subject}
-                  </button>
-                ))
-              ) : (
-                <p className="text-[11px] text-slate-400 font-medium">Chưa có dữ liệu môn học.</p>
-              )}
-            </div>
-          </div>
+            <p className="text-[10px] text-slate-400 text-center font-medium">
+              CURRENTLY IN BETA TESTING! INTERFACE AND FEATURES ARE SUBJECT TO CONSTANT CHANGE!
+            </p>
 
-          <p className="text-[10px] text-slate-400 text-center font-medium">
-            CURRENTLY IN BETA TESTING! INTERFACE AND FEATURES ARE SUBJECT TO CONSTANT CHANGE!
-          </p>
-
-          <p className="text-[10px] text-slate-400 text-center font-medium">
-            © {new Date().getFullYear()} CyberDay Studios Publishing • All right reserved
-          </p>
-        </aside>
+            <p className="text-[10px] text-slate-400 text-center font-medium">
+              © {new Date().getFullYear()} CyberDay Studios Publishing • All right reserved
+            </p>
+          </aside>
+        </div>
       </div>
 
       {/* MODALS */}
@@ -971,40 +948,36 @@ export default function HomePage() {
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
 
-      {/* 📱 BOTTOM NAVIGATION BAR WITH RED BADGE INDICATOR */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 z-40 h-[58px] px-1 flex items-center justify-between shadow-lg select-none">
-        
-        {/* 1. KHO TÀI LIỆU */}
+      {/* MOBILE BOTTOM NAVIGATION */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-[58px] select-none items-center justify-between border-slate-200 border-t bg-white/95 px-1 shadow-lg backdrop-blur-md md:hidden">
         <button
           onClick={() => {
             setIsBottomMenuOpen(false);
             setFeedType('docs');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          className={`flex-1 flex flex-col items-center justify-center h-full min-w-0 transition-colors cursor-pointer ${
-            feedType === 'docs' ? 'text-blue-600 font-extrabold' : 'text-slate-500 font-semibold'
+          className={`flex h-full min-w-0 flex-1 cursor-pointer flex-col items-center justify-center transition-colors ${
+            feedType === 'docs' ? 'font-extrabold text-blue-600' : 'font-semibold text-slate-500'
           }`}
         >
-          <BookOpen className="w-5 h-5 shrink-0" />
-          <span className="text-[10px] leading-normal overflow-visible mt-0.5 truncate max-w-full">Tài liệu</span>
+          <BookOpen className="h-5 w-5 shrink-0" />
+          <span className="mt-0.5 max-w-full truncate overflow-visible text-[10px] leading-normal">Tài liệu</span>
         </button>
 
-        {/* 2. BẢNG TIN */}
         <button
           onClick={() => {
             setIsBottomMenuOpen(false);
             setFeedType('social');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          className={`flex-1 flex flex-col items-center justify-center h-full min-w-0 transition-colors cursor-pointer ${
-            feedType === 'social' ? 'text-indigo-600 font-extrabold' : 'text-slate-500 font-semibold'
+          className={`flex h-full min-w-0 flex-1 cursor-pointer flex-col items-center justify-center transition-colors ${
+            feedType === 'social' ? 'font-extrabold text-indigo-600' : 'font-semibold text-slate-500'
           }`}
         >
-          <MessageSquareText className="w-5 h-5 shrink-0" />
-          <span className="text-[10px] leading-normal overflow-visible mt-0.5 truncate max-w-full">Bảng tin</span>
+          <MessageSquareText className="h-5 w-5 shrink-0" />
+          <span className="mt-0.5 max-w-full truncate overflow-visible text-[10px] leading-normal">Bảng tin</span>
         </button>
 
-        {/* 3. TIN NHẮN */}
         <Link
           href={user ? "/messages" : "#"}
           onClick={(e) => {
@@ -1014,15 +987,14 @@ export default function HomePage() {
               setIsAuthOpen(true);
             }
           }}
-          className="flex-1 flex flex-col items-center justify-center h-full min-w-0 text-slate-500 hover:text-blue-600 transition-colors cursor-pointer font-semibold"
+          className="flex h-full min-w-0 flex-1 cursor-pointer flex-col items-center justify-center font-semibold text-slate-500 transition-colors hover:text-blue-600"
         >
           <div className="relative shrink-0">
-            <MessageCircle className="w-5 h-5" />
+            <MessageCircle className="h-5 w-5" />
           </div>
-          <span className="text-[10px] leading-normal overflow-visible mt-0.5 truncate max-w-full">Tin nhắn</span>
+          <span className="mt-0.5 max-w-full truncate overflow-visible text-[10px] leading-normal">Tin nhắn</span>
         </Link>
 
-        {/* 4. KẾT BẠN (CÓ INDICATOR ĐỎ KHI CÓ LỜI MỜI MỚI) */}
         <Link
           href={user ? "/friends" : "#"}
           onClick={(e) => {
@@ -1032,52 +1004,49 @@ export default function HomePage() {
               setIsAuthOpen(true);
             }
           }}
-          className="flex-1 flex flex-col items-center justify-center h-full min-w-0 text-slate-500 hover:text-blue-600 transition-colors cursor-pointer font-semibold"
+          className="flex h-full min-w-0 flex-1 cursor-pointer flex-col items-center justify-center font-semibold text-slate-500 transition-colors hover:text-blue-600"
         >
           <div className="relative shrink-0">
-            <UserPlus className="w-5 h-5" />
-            {/* 🔴 BADGE INDICATOR ĐỎ BẮN LÊN KHI CÓ LỜI MỜI */}
+            <UserPlus className="h-5 w-5" />
             {pendingFriendRequestsCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white font-extrabold text-[9px] min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center border-2 border-white animate-pulse">
+              <span className="absolute -top-1.5 -right-2 flex h-[16px] min-w-[16px] items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 font-extrabold text-[9px] text-white animate-pulse">
                 {pendingFriendRequestsCount > 9 ? '9+' : pendingFriendRequestsCount}
               </span>
             )}
           </div>
-          <span className="text-[10px] leading-normal overflow-visible mt-0.5 truncate max-w-full">Kết bạn</span>
+          <span className="mt-0.5 max-w-full truncate overflow-visible text-[10px] leading-normal">Kết bạn</span>
         </Link>
 
-        {/* 5. TRANG CÁ NHÂN */}
-        <div className="flex-1 flex flex-col items-center justify-center h-full min-w-0 relative" ref={bottomMenuRef}>
+        <div className="relative flex h-full min-w-0 flex-1 flex-col items-center justify-center" ref={bottomMenuRef}>
           <button
             onClick={() => {
               if (!user) return setIsAuthOpen(true);
               setIsBottomMenuOpen((prev) => !prev);
             }}
-            className="flex flex-col items-center justify-center h-full w-full text-slate-500 hover:text-blue-600 transition-colors cursor-pointer font-semibold"
+            className="flex h-full w-full cursor-pointer flex-col items-center justify-center font-semibold text-slate-500 transition-colors hover:text-blue-600"
           >
-            <div className="h-5 flex items-center justify-center shrink-0">
+            <div className="flex h-5 shrink-0 items-center justify-center">
               {profile?.avatar_url ? (
                 <img
                   src={profile.avatar_url}
                   alt="avatar"
-                  className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-200"
+                  className="h-5 w-5 rounded-full object-cover ring-1 ring-slate-200"
                 />
               ) : (
-                <UserAvatar src={profile?.avatar_url} name={profile?.full_name} size="sm" className="!w-5 !h-5 text-[10px]" />
+                <UserAvatar src={profile?.avatar_url} name={profile?.full_name} size="sm" className="!h-5 !w-5 text-[10px]" />
               )}
             </div>
-            <span className="text-[10px] leading-normal overflow-visible mt-0.5 truncate max-w-full">
+            <span className="mt-0.5 max-w-full truncate overflow-visible text-[10px] leading-normal">
               {user ? 'Tôi' : 'Đăng nhập'}
             </span>
           </button>
 
-          {/* POPUP MENU */}
           {isBottomMenuOpen && user && (
-            <div className="absolute bottom-16 right-1 w-48 bg-white border border-slate-200 rounded-2xl shadow-2xl p-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+            <div className="absolute right-1 bottom-16 z-50 w-48 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-150">
               <Link
                 href="/profile"
                 onClick={() => setIsBottomMenuOpen(false)}
-                className="flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors"
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 font-bold text-xs text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600"
               >
                 <UserAvatar src={profile?.avatar_url} name={profile?.full_name} size="sm" />
                 <span className="truncate">Trang cá nhân</span>
@@ -1085,15 +1054,14 @@ export default function HomePage() {
 
               <button
                 onClick={handleSignOut}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors mt-0.5 cursor-pointer text-left"
+                className="mt-0.5 flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-left font-bold text-xs text-rose-600 transition-colors hover:bg-rose-50"
               >
-                <LogOut className="w-4 h-4 text-rose-500 shrink-0" />
+                <LogOut className="h-4 w-4 shrink-0 text-rose-500" />
                 <span>Đăng xuất</span>
               </button>
             </div>
           )}
         </div>
-
       </nav>
     </main>
   );

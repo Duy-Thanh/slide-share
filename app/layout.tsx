@@ -34,9 +34,8 @@ export default function RootLayout({
       lang="vi"
       className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className={`${inter.className} min-h-full flex flex-col`}>
+      <body className={`${inter.className} min-h-full flex flex-col bg-[#f0f2f5]`}>
         {children}
-        {/* ChatWidget tự quản lý auth status & tự lắng nghe event chat */}
         <ChatWidget />
         <Toaster position="top-right" richColors closeButton />
       </body>
