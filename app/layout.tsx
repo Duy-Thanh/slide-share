@@ -15,7 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sonder - Mạng xã hội chia sẻ tài liệu",
+  title: "Sonder - Mạng xã hội 2 trong 1",
   description: "Mạng xã hội chia sẻ tài liệu, đề thi và slide bài giảng dành riêng cho sinh viên",
   icons: {
     icon: "/logo-tlu.png",
