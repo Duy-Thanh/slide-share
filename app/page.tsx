@@ -558,7 +558,7 @@ export default function HomePage() {
                           className="flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors mt-0.5"
                         >
                           <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
-                          <span className="truncate">Quy tắc cộng đồng</span>
+                          <span className="truncate">Tiêu chuẩn cộng đồng</span>
                         </Link>
 
                         <button
