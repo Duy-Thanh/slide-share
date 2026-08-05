@@ -8,6 +8,7 @@ export interface Profile {
   points: number;
   badge?: 'verified' | 'vip' | 'admin' | null; // 💥 THÊM DÒNG NÀY
   created_at: string;
+  is_banned?: boolean;
 }
 
 export interface DocumentItem {
