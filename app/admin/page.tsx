@@ -114,7 +114,7 @@ export default function AdminDashboardPage() {
     if (postsErr) console.error('Lỗi fetch posts:', postsErr);
   };
 
-  // ADMIN TRẢM BÀI TRỰC TIẾP (XÓA DƯỚI DB REAL-TIME)
+  // ADMIN TRẢM BÀI TRỰC TIẾP
   const handleDeleteContent = async (id: string, type: 'docs' | 'posts') => {
     if (!confirm('ADMIN TRẢM: Mày chắc chắn muốn XÓA VĨNH VIỄN bài này chứ?')) return;
 
@@ -126,7 +126,6 @@ export default function AdminDashboardPage() {
     if (error) {
       alert(`❌ KHÔNG THỂ XÓA! Lỗi Supabase RLS: ${error.message}`);
     } else {
-      // Cập nhật State ngay tại chỗ
       if (type === 'docs') {
         setDocsList((prev) => prev.filter((item) => item.id !== id));
         setStats((prev) => ({ ...prev, totalDocs: Math.max(0, prev.totalDocs - 1) }));
@@ -139,47 +138,95 @@ export default function AdminDashboardPage() {
     setActionLoading(null);
   };
 
-  // ADMIN THAY ĐỔI BADGE (TÍCH XANH / VIP)
-  const handleUpdateBadge = async (userId: string, badge: Profile['badge']) => {
-    setActionLoading(userId);
+  // ADMIN THAY ĐỔI BADGE (KHÔNG CHO TỰ ĐỔI CỦA CHÍNH MÌNH)
+  const handleUpdateBadge = async (targetUser: Profile, badge: Profile['badge']) => {
+    // 1. Lấy session hiện tại để check xem có phải tự bấm vào nick mình không
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user.id === targetUser.id) {
+      alert('⚠️ ĐỊT MẸ BỚT NGHỊCH NGU! Mày đang là Admin, tự hạ Badge xuống VIP/Tích xanh là tự đá mình ra khỏi trang Admin đấy!');
+      return;
+    }
+
+    setActionLoading(targetUser.id);
     const { error } = await supabase
       .from('profiles')
       .update({ badge })
-      .eq('id', userId);
+      .eq('id', targetUser.id);
 
     if (error) {
       alert(`❌ Lỗi đổi Badge: ${error.message}`);
     } else {
       setUsersList((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, badge } : u))
+        prev.map((u) => (u.id === targetUser.id ? { ...u, badge } : u))
       );
+      alert('✅ Đã cập nhật Badge thành công!');
     }
     setActionLoading(null);
   };
 
-  // ADMIN BAN / UNBAN USER
-  const handleToggleBan = async (userId: string, currentBanStatus?: boolean) => {
-    const nextBanStatus = !currentBanStatus;
-    const confirmMsg = nextBanStatus
-      ? 'ADMIN LỆNH: Mày chắc chắn muốn KHÓA NICK (BAN) user này?'
-      : 'ADMIN LỆNH: Mở khóa nick cho user này?';
+  // ADMIN BAN / UNBAN USER (CHẶN BLACKLIST)
+  const handleToggleBan = async (userItem: Profile) => {
+    // CHẶN TỰ BAN CHÍNH MÌNH
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user.id === userItem.id) {
+      alert('❌ ĐỊT MẸ BỚT NGHỊCH! Mày định tự BAN chính mình để tự nhốt mình ngoài cửa à?');
+      return;
+    }
+    
+    const isCurrentlyBanned = !!userItem.is_banned;
+    const confirmMsg = !isCurrentlyBanned
+      ? `ADMIN LỆNH: Mày chắc chắn muốn BAN CỨNG user "${userItem.full_name || userItem.id}"?\n\nLệnh này sẽ khóa nick và chặn Google OAuth vĩnh viễn!`
+      : `ADMIN LỆNH: Mở khóa BAN cho user "${userItem.full_name || userItem.id}"?`;
 
     if (!confirm(confirmMsg)) return;
 
-    setActionLoading(userId);
+    setActionLoading(userItem.id);
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({ is_banned: nextBanStatus })
-      .eq('id', userId);
+    // Lấy email từ profile hoặc bảng auth nếu lưu
+    const targetEmail = (userItem as any).email;
 
-    if (error) {
-      alert(`❌ Lỗi thực hiện BAN/UNBAN: ${error.message}`);
+    if (!isCurrentlyBanned) {
+      // 1. Đưa email vào blacklist nếu có
+      if (targetEmail) {
+        await supabase.from('banned_users').upsert({
+          email: targetEmail,
+          reason: 'Vi phạm quy tắc cộng đồng/Clone rác'
+        }, { onConflict: 'email' });
+      }
+
+      // 2. Set is_banned = true
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_banned: true })
+        .eq('id', userItem.id);
+
+      if (error) {
+        alert(`❌ Lỗi BAN: ${error.message}`);
+      } else {
+        setUsersList((prev) =>
+          prev.map((u) => (u.id === userItem.id ? { ...u, is_banned: true } : u))
+        );
+        alert('🚫 Đã BAN CỨNG user thành công!');
+      }
     } else {
-      setUsersList((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, is_banned: nextBanStatus } : u))
-      );
-      alert(nextBanStatus ? '🚫 Đã BAN vĩnh viễn user này!' : '✅ Đã MỞ KHÓA cho user!');
+      // UNBAN: Bỏ khỏi banned_users & set is_banned = false
+      if (targetEmail) {
+        await supabase.from('banned_users').delete().eq('email', targetEmail);
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_banned: false })
+        .eq('id', userItem.id);
+
+      if (error) {
+        alert(`❌ Lỗi MỞ BAN: ${error.message}`);
+      } else {
+        setUsersList((prev) =>
+          prev.map((u) => (u.id === userItem.id ? { ...u, is_banned: false } : u))
+        );
+        alert('✅ Đã gỡ Banned & Mở khóa thành công!');
+      }
     }
     setActionLoading(null);
   };
@@ -452,36 +499,42 @@ export default function AdminDashboardPage() {
                       </td>
 
                       <td className="p-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            disabled={actionLoading === u.id}
-                            onClick={() => handleUpdateBadge(u.id, u.badge === 'verified' ? null : 'verified')}
-                            className="px-2 py-1 bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
-                          >
-                            Tích Xanh
-                          </button>
+                        {u.badge === 'admin' ? (
+                          <span className="text-[10px] font-extrabold text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-lg border border-rose-500/20 shadow-sm inline-block">
+                            👑 ADMIN (Bất tử)
+                          </span>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              disabled={actionLoading === u.id}
+                              onClick={() => handleUpdateBadge(u, u.badge === 'verified' ? null : 'verified')}
+                              className="px-2 py-1 bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
+                            >
+                              Tích Xanh
+                            </button>
 
-                          <button
-                            disabled={actionLoading === u.id}
-                            onClick={() => handleUpdateBadge(u.id, u.badge === 'vip' ? null : 'vip')}
-                            className="px-2 py-1 bg-amber-600/20 hover:bg-amber-600 text-amber-400 hover:text-white rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
-                          >
-                            VIP
-                          </button>
+                            <button
+                              disabled={actionLoading === u.id}
+                              onClick={() => handleUpdateBadge(u, u.badge === 'vip' ? null : 'vip')}
+                              className="px-2 py-1 bg-amber-600/20 hover:bg-amber-600 text-amber-400 hover:text-white rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
+                            >
+                              VIP
+                            </button>
 
-                          <button
-                            disabled={actionLoading === u.id}
-                            onClick={() => handleToggleBan(u.id, u.is_banned)}
-                            className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer text-[10px] font-bold flex items-center gap-1 ${
-                              u.is_banned
-                                ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                                : 'bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white'
-                            }`}
-                          >
-                            <Ban className="w-3 h-3" />
-                            <span>{u.is_banned ? 'Mở Ban' : 'BAN NICK'}</span>
-                          </button>
-                        </div>
+                            <button
+                              disabled={actionLoading === u.id}
+                              onClick={() => handleToggleBan(u)}
+                              className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer text-[10px] font-bold flex items-center gap-1 ${
+                                u.is_banned
+                                  ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                                  : 'bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white'
+                              }`}
+                            >
+                              <Ban className="w-3 h-3" />
+                              <span>{u.is_banned ? 'Mở Ban' : 'BAN NICK'}</span>
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
