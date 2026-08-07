@@ -20,11 +20,21 @@ import {
   BookOpen,
   CheckCircle2
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState<'content' | 'users'>('content');
+
+  // Bên trong component AdminDashboardPage:
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !isAdmin) {
+      router.replace('/'); // Bắn thẳng về trang chủ không để lại dấu vết
+    }
+  }, [loading, isAdmin, router]);
 
   // Stats
   const [stats, setStats] = useState({
@@ -257,15 +267,10 @@ export default function AdminDashboardPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (loading || !isAdmin) {
     return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4 text-center">
-        <ShieldAlert className="w-16 h-16 text-rose-500 mb-4 animate-bounce" />
-        <h1 className="text-2xl font-black">KHÔNG CÓ QUYỀN TRUY CẬP</h1>
-        <p className="text-sm text-slate-400 mt-2 max-w-md">Trang này chỉ dành riêng cho Quản trị viên SonderNet.</p>
-        <Link href="/" className="mt-6 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2">
-          <ArrowLeft className="w-4 h-4" /> Quay lại trang chủ
-        </Link>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
       </div>
     );
   }
