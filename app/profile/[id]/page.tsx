@@ -4,8 +4,9 @@ import { useState, useEffect, useRef, useCallback, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import { DocumentItem, Profile } from '@/types/database';
 import DocumentCard from '@/components/document-card';
-import { Coins, Folder, ArrowLeft, Users, Loader2 } from 'lucide-react';
+import { Coins, Folder, ArrowLeft, Users, Loader2, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import UserAvatar from '@/components/user-avatar';
 import UserBadge from '@/components/user-badge';
 import FriendButton from '@/components/friend-button';
@@ -17,12 +18,14 @@ const PAGE_SIZE = 10;
 export default function PublicProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const targetUserId = resolvedParams.id;
+  const router = useRouter();
 
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
   const [currentUserPoints, setCurrentUserPoints] = useState<number>(0);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userDocs, setUserDocs] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isBannedUser, setIsBannedUser] = useState(false);
   const [isFriendListOpen, setIsFriendListOpen] = useState(false);
 
   // States cho Infinite Scroll
@@ -38,7 +41,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
     fetchUserDocs(true);
   }, [targetUserId]);
 
-  // 1. Fetch thông tin Profile header & User hiện tại
+  // 1. Fetch thông tin Profile header & Check BANNED STATUS
   const fetchProfileHeader = async () => {
     setLoading(true);
 
@@ -55,23 +58,28 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       if (myProf) setCurrentUserPoints(myProf.points || 0);
     }
 
-    const { data: profData } = await supabase
+    const { data: profData, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', targetUserId)
       .single();
 
-    if (profData) {
+    // 💥 NẾU PROFILE BỊ BAN HOẶC KHÔNG TỒN TẠI -> ĐÁNH DẤU BANNED
+    if (error || !profData || profData.is_banned) {
+      setIsBannedUser(true);
+      setProfile(null);
+    } else {
+      setIsBannedUser(false);
       setProfile(profData);
     }
 
     setLoading(false);
   };
 
-  // 2. Fetch tài liệu phân trang (Cursor-based Pagination + Dedup)
+  // 2. Fetch tài liệu phân trang
   const fetchUserDocs = useCallback(
     async (isFirstLoad = false) => {
-      if (isFetchingRef.current) return;
+      if (isFetchingRef.current || isBannedUser) return;
       if (!isFirstLoad && !hasMore) return;
 
       isFetchingRef.current = true;
@@ -136,7 +144,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
           }));
         }
 
-        // 💥 DEDUP DỮ LIỆU ĐẢM BẢO KHÔNG TRÙNG ID BẢN GHI
         if (isFirstLoad) {
           const uniqueDocs = Array.from(new Map(formattedDocs.map((d: any) => [d.id, d])).values());
           setUserDocs(uniqueDocs as DocumentItem[]);
@@ -155,17 +162,17 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       setLoadingMore(false);
       isFetchingRef.current = false;
     },
-    [targetUserId, userDocs, hasMore]
+    [targetUserId, userDocs, hasMore, isBannedUser]
   );
 
-  // 3. Intersection Observer bắt sự kiện cuộn trang
+  // 3. Intersection Observer
   useEffect(() => {
     const element = observerTarget.current;
     if (!element) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isFetchingRef.current && !loading) {
+        if (entries[0].isIntersecting && hasMore && !isFetchingRef.current && !loading && !isBannedUser) {
           fetchUserDocs(false);
         }
       },
@@ -176,7 +183,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
     return () => {
       if (element) observer.unobserve(element);
     };
-  }, [fetchUserDocs, hasMore, loading]);
+  }, [fetchUserDocs, hasMore, loading, isBannedUser]);
 
   const handleDeleteInPublic = (docId: string) => {
     setUserDocs((prev) => prev.filter((doc) => doc.id !== docId));
@@ -191,11 +198,21 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
     );
   }
 
-  if (!profile) {
+  // 💥 XỬ LÝ KHI TÀI KHOẢN BỊ BAN HOẶC KHÔNG TỒN TẠI
+  if (isBannedUser || !profile) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8 flex flex-col items-center justify-center space-y-4">
-        <p className="text-sm text-slate-500">Không tìm thấy sinh viên này.</p>
-        <Link href="/" className="text-xs text-blue-600 font-bold hover:underline">
+      <div className="min-h-screen bg-slate-50 p-8 flex flex-col items-center justify-center space-y-4 text-center">
+        <div className="p-3 bg-rose-100 rounded-full text-rose-600">
+          <ShieldAlert className="w-10 h-10" />
+        </div>
+        <h2 className="text-lg font-extrabold text-slate-900">Tài khoản không khả dụng</h2>
+        <p className="text-xs text-slate-500 max-w-sm">
+          Tài khoản sinh viên này không tồn tại hoặc đã bị khóa do vi phạm quy định cộng đồng
+        </p>
+        <Link
+          href="/"
+          className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+        >
           Quay lại trang chủ
         </Link>
       </div>
@@ -280,7 +297,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
           ) : (
             userDocs.map((doc, idx) => (
               <DocumentCard
-                key={`${doc.id}-${idx}`} // 💥 FIX LỖI DUPLICATE KEY 100%
+                key={`${doc.id}-${idx}`}
                 doc={doc}
                 currentUserId={currentUserId}
                 currentUserPoints={currentUserPoints}
