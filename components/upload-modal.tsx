@@ -42,7 +42,7 @@ export default function UploadModal({
     setUploading(true);
 
     try {
-      // 💥 1. BẢO VỆ: CHECK BAN TRƯỚC KHIN TIẾN HÀNH UPLOAD FILE
+      // 1. CHECK BAN Ở CLIENT
       const { data: profile } = await supabase
         .from('profiles')
         .select('is_banned')
@@ -51,7 +51,7 @@ export default function UploadModal({
 
       if (profile?.is_banned) {
         toast.error('Tài khoản bị khóa!', {
-          description: 'Tài khoản của bạn đã bị BAN vĩnh viễn, đéo thể upload tài liệu.',
+          description: 'Tài khoản của bạn đã bị BAN vĩnh viễn.',
         });
         await supabase.auth.signOut();
         onClose();
@@ -59,15 +59,31 @@ export default function UploadModal({
         return;
       }
 
-      // 2. Upload file lên API Storage
+      // 💥 2. LẤY SUPABASE SESSION TOKEN TRUYỀN VÀO HEADER API
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
+        toast.error('Phiên đăng nhập hết hạn!', { description: 'Vui lòng đăng nhập lại.' });
+        return;
+      }
+
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
-      const tgData = await res.json();
-      if (!res.ok) throw new Error(tgData.error);
+      // 💥 GỬI FETCH KÈM BEARER TOKEN CHỐNG LỖI 401
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      });
 
-      // 3. Lưu thông tin tài liệu vào Supabase
+      const tgData = await res.json();
+      if (!res.ok) throw new Error(tgData.error || 'Upload thất bại');
+
+      // 3. LƯU THÔNG TIN BÀI VIẾT VÀO SUPABASE
       const { error: dbError } = await supabase.from('documents').insert([
         {
           title,
@@ -86,7 +102,7 @@ export default function UploadModal({
 
       if (dbError) throw dbError;
 
-      // 4. Cộng 20 Coins cho người dùng
+      // 4. CỘNG COINS
       const updatedPoints = userPoints + 20;
       await supabase.from('profiles').update({ points: updatedPoints }).eq('id', userId);
 

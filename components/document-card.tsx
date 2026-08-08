@@ -145,19 +145,57 @@ export default function DocumentCard({
     const success = await checkAndDeductPoints('tải tài liệu');
     if (!success) return;
 
-    await supabase
-      .from('documents')
-      .update({ downloads_count: (doc.downloads_count || 0) + 1 })
-      .eq('id', doc.id);
+    try {
+      // 💥 1. LẤY ACCESS TOKEN TỪ SUPABASE SESSION
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
 
-    const downloadUrl = `/api/file/${doc.file_id}?filename=${encodeURIComponent(doc.file_name)}&download=true`;
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    a.download = doc.file_name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    toast.success('Bắt đầu tải tài liệu!');
+      if (!accessToken) {
+        toast.error('Phiên đăng nhập hết hạn!', { description: 'Vui lòng đăng nhập lại.' });
+        return;
+      }
+
+      toast.info('Đang chuẩn bị tải tài liệu...');
+
+      // 💥 2. FETCH FILE VỚI HEADER AUTHORIZATION
+      const downloadUrl = `/api/file/${doc.file_id}?filename=${encodeURIComponent(doc.file_name)}&download=true`;
+      const res = await fetch(downloadUrl, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Không thể tải file từ máy chủ');
+      }
+
+      // 💥 3. TẠO BLOB VÀ KÍCH HOẠT DOWNLOAD CỦA TRÌNH DUYỆT
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = doc.file_name;
+      document.body.appendChild(a);
+      a.click();
+
+      // Dọn dẹp tài nguyên
+      a.remove();
+      window.URL.revokeObjectURL(blobUrl);
+
+      // Cập nhật lượt tải DB
+      await supabase
+        .from('documents')
+        .update({ downloads_count: (doc.downloads_count || 0) + 1 })
+        .eq('id', doc.id);
+
+      toast.success('Tải tài liệu thành công! 🎉');
+    } catch (err: any) {
+      console.error('Lỗi download file:', err);
+      toast.error('Lỗi tải file!', { description: err.message });
+    }
   };
 
   // Xử lý Thả tim Upvote

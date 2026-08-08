@@ -227,15 +227,19 @@ export default function HomePage() {
     }
   };
 
-  const fetchTopContributors = async () => {
+  const fetchTopContributors = useCallback(async () => {
     const { data } = await supabase
       .from('profiles')
       .select('*')
-      .eq('is_banned', false) // 💥 CHỈ LẤY NICK KHÔNG BỊ BAN
+      .eq('is_banned', false)
       .order('points', { ascending: false })
       .limit(5);
-    if (data) setTopContributors(data);
-  };
+
+    if (data) {
+      // 💥 Ép React rerender bằng cách spread ra array mới hoàn toàn
+      setTopContributors([...data]);
+    }
+  }, []);
 
   const fetchDocs = useCallback(
     async (isFirstLoad = false) => {
@@ -459,9 +463,34 @@ export default function HomePage() {
     };
   }, [feedType, hasMoreDocs, hasMorePosts, initialLoading, fetchDocs, fetchPosts]);
 
-  const handlePointsChange = (newPoints: number) => {
-    if (profile) setProfile({ ...profile, points: newPoints });
-  };
+  // 💥 LẮNG NGHE BẢNG PROFILES ĐỂ TỰ ĐỘNG CẬP NHẬT TOP ĐÓNG GÓP REAL-TIME
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime_profiles_points')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+        },
+        () => {
+          fetchTopContributors();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchTopContributors]);
+
+  const handlePointsChange = useCallback((newPoints: number) => {
+    setProfile((prev) => (prev ? { ...prev, points: newPoints } : null));
+
+    // Cập nhật lại danh sách Top
+    fetchTopContributors();
+  }, [fetchTopContributors]);
 
   const handleDeleteInHome = (id: string) => {
     if (feedType === 'docs') {
