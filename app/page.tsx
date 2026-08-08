@@ -33,7 +33,8 @@ import {
   MessageSquareText,
   MessageCircle,
   UserPlus,
-  ShieldCheck
+  ShieldCheck,
+  Settings
 } from 'lucide-react';
 
 const PAGE_SIZE = 10;
@@ -596,6 +597,15 @@ export default function HomePage() {
                         </Link>
 
                         <Link
+                          href="/settings"
+                          onClick={() => setIsBottomMenuOpen(false)}
+                          className="mt-0.5 flex items-center gap-2.5 rounded-xl px-3 py-2 font-bold text-xs text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600"
+                        >
+                          <Settings className="h-4 w-4 shrink-0 text-slate-600" />
+                          <span className="truncate">Cài đặt</span>
+                        </Link>
+
+                        <Link
                           href="/guidelines"
                           onClick={() => setIsProfileMenuOpen(false)}
                           className="flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors mt-0.5"
@@ -1104,6 +1114,15 @@ export default function HomePage() {
               >
                 <UserAvatar src={profile?.avatar_url} name={profile?.full_name} size="sm" />
                 <span className="truncate">Trang cá nhân</span>
+              </Link>
+
+              <Link
+                href="/settings"
+                onClick={() => setIsBottomMenuOpen(false)}
+                className="mt-0.5 flex items-center gap-2.5 rounded-xl px-3 py-2 font-bold text-xs text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600"
+              >
+                <Settings className="h-4 w-4 shrink-0 text-slate-600" />
+                <span className="truncate">Cài đặt</span>
               </Link>
 
               <Link
