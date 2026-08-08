@@ -21,26 +21,38 @@ export default function AuthModal({
 
   if (!isOpen) return null;
 
+  // Hàm lấy origin chuẩn cho cả Dev lẫn Production
+  const getURL = () => {
+    let url =
+      process.env.NEXT_PUBLIC_SITE_URL ?? // Cấu hình domain prod trong .env nếu có
+      process.env.NEXT_PUBLIC_VERCEL_URL ?? // Tự bắt URL Vercel nếu deploy trên Vercel
+      'http://localhost:3000/';
+    
+    // Đảm bảo có https:// và kết thúc không bị thừa dấu /
+    url = url.includes('http') ? url : `https://${url}`;
+    url = url.charAt(url.length - 1) === '/' ? url : `${url}/`;
+    return url;
+  };
+
   // ĐĂNG NHẬP / ĐĂNG KÝ BẰNG GOOGLE OAUTH
   const handleGoogleAuth = async () => {
     setGoogleLoading(true);
     try {
+      const redirectUrl = `${getURL()}auth/callback`;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           queryParams: {
             faculty_choice: isSignUp ? faculty : '',
           },
-          // 💥 Trỏ về Callback Route để đổi code lấy Cookie bảo mật
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: redirectUrl, // 💥 Truyền URL Callback chuẩn theo môi trường
         },
       });
 
       if (error) throw error;
     } catch (err: any) {
-      toast.error('Đăng nhập Google thất bại!', {
-        description: err.message,
-      });
+      toast.error('Đăng nhập Google thất bại!', { description: err.message });
       setGoogleLoading(false);
     }
   };
