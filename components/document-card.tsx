@@ -34,7 +34,7 @@ interface Props {
   currentUserId?: string;
   currentUserPoints?: number;
   onRefresh?: () => void;
-  onToggleBookmark?: (isBookmarked: boolean) => void;
+  onToggleBookmark?: (docId: string, isBookmarked: boolean) => void;
   onDelete?: (docId: string) => void;
   onPointsChange?: (newPoints: number) => void;
 }
@@ -48,25 +48,74 @@ export default function DocumentCard({
   onDelete,
   onPointsChange,
 }: Props) {
-  const [upvoted, setUpvoted] = useState(doc.has_upvoted || false);
-  const [upvoteCount, setUpvoteCount] = useState(doc.upvotes_count || 0);
-  const [bookmarked, setBookmarked] = useState(doc.has_bookmarked || false);
-
-  // State Comment & Preview Modal
-  const [showComments, setShowComments] = useState(false);
-  const [commentsCount, setCommentsCount] = useState<number>(doc.comments_count || 0);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-
   // Phân biệt bài đăng Social Post hay Tài liệu File
   const isPostMedia = doc.post_type === 'post' || (!doc.file_id && doc.media_urls && doc.media_urls.length > 0);
   const mediaUrls = doc.media_urls || [];
 
+  // State local tương tác
+  const [upvoted, setUpvoted] = useState<boolean>(Boolean(doc.has_upvoted));
+  const [upvoteCount, setUpvoteCount] = useState<number>(doc.upvotes_count || 0);
+  const [bookmarked, setBookmarked] = useState<boolean>(Boolean(doc.has_bookmarked));
+  const [commentsCount, setCommentsCount] = useState<number>(doc.comments_count || 0);
+
+  // State Comment & Preview Modal
+  const [showComments, setShowComments] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  // 💥 RE-SYNC TỰ ĐỘNG KHI CURRENT_USER_ID HOẶC PROPS THAY ĐỔI (ĐĂNG NHẬP / ĐĂNG XUẤT)
   useEffect(() => {
-    setUpvoted(doc.has_upvoted || false);
+    let isMounted = true;
+
+    const syncUserInteractions = async () => {
+      // 1. Nếu Đăng xuất (Guest) -> Trả trạng thái tương tác về false
+      if (!currentUserId) {
+        if (isMounted) {
+          setUpvoted(false);
+          setBookmarked(false);
+        }
+        return;
+      }
+
+      // 2. Nếu Đăng nhập -> Re-check trực tiếp từ DB để đảm bảo không bị lệch state
+      const tableNameUpvote = isPostMedia ? 'post_upvotes' : 'upvotes';
+      const tableNameBookmark = isPostMedia ? 'post_bookmarks' : 'bookmarks';
+      const idKey = isPostMedia ? 'post_id' : 'document_id';
+
+      try {
+        const [upvoteRes, bookmarkRes] = await Promise.all([
+          supabase
+            .from(tableNameUpvote)
+            .select('id')
+            .eq('user_id', currentUserId)
+            .eq(idKey, doc.id)
+            .maybeSingle(),
+          supabase
+            .from(tableNameBookmark)
+            .select('id')
+            .eq('user_id', currentUserId)
+            .eq(idKey, doc.id)
+            .maybeSingle(),
+        ]);
+
+        if (isMounted) {
+          setUpvoted(!!upvoteRes.data);
+          setBookmarked(!!bookmarkRes.data);
+        }
+      } catch (error) {
+        console.error('Lỗi sync tương tác user:', error);
+      }
+    };
+
+    // Update số lượng từ props
     setUpvoteCount(doc.upvotes_count || 0);
-    setBookmarked(doc.has_bookmarked || false);
     setCommentsCount(doc.comments_count || 0);
-  }, [doc.has_upvoted, doc.upvotes_count, doc.has_bookmarked, doc.id, doc.comments_count, currentUserId]);
+
+    syncUserInteractions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUserId, doc.id, doc.upvotes_count, doc.comments_count, isPostMedia]);
 
   // 💥 CHẶN RENDER NẾU CHỦ BÀI VIẾT BỊ BAN
   if (doc.profiles?.is_banned) {
@@ -84,7 +133,7 @@ export default function DocumentCard({
 
     if (profile?.is_banned) {
       toast.error('Tài khoản bị khóa!', {
-        description: 'Tài khoản của bạn đã bị BAN vĩnh viễn, đéo thể thực hiện thao tác này.',
+        description: 'Tài khoản của bạn đã bị BAN vĩnh viễn, không thể thực hiện thao tác này.',
       });
       await supabase.auth.signOut();
       window.location.href = '/';
@@ -146,7 +195,6 @@ export default function DocumentCard({
     if (!success) return;
 
     try {
-      // 💥 1. LẤY ACCESS TOKEN TỪ SUPABASE SESSION
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
 
@@ -157,7 +205,6 @@ export default function DocumentCard({
 
       toast.info('Đang chuẩn bị tải tài liệu...');
 
-      // 💥 2. FETCH FILE VỚI HEADER AUTHORIZATION
       const downloadUrl = `/api/file/${doc.file_id}?filename=${encodeURIComponent(doc.file_name)}&download=true`;
       const res = await fetch(downloadUrl, {
         method: 'GET',
@@ -171,7 +218,6 @@ export default function DocumentCard({
         throw new Error(errData.error || 'Không thể tải file từ máy chủ');
       }
 
-      // 💥 3. TẠO BLOB VÀ KÍCH HOẠT DOWNLOAD CỦA TRÌNH DUYỆT
       const blob = await res.blob();
       const blobUrl = window.URL.createObjectURL(blob);
 
@@ -181,11 +227,9 @@ export default function DocumentCard({
       document.body.appendChild(a);
       a.click();
 
-      // Dọn dẹp tài nguyên
       a.remove();
       window.URL.revokeObjectURL(blobUrl);
 
-      // Cập nhật lượt tải DB
       await supabase
         .from('documents')
         .update({ downloads_count: (doc.downloads_count || 0) + 1 })
@@ -209,6 +253,7 @@ export default function DocumentCard({
     const nextUpvoted = !upvoted;
     const nextCount = nextUpvoted ? upvoteCount + 1 : Math.max(0, upvoteCount - 1);
 
+    // Optimistic Update
     setUpvoted(nextUpvoted);
     setUpvoteCount(nextCount);
 
@@ -217,13 +262,20 @@ export default function DocumentCard({
 
     try {
       if (previousUpvoted) {
-        const { error } = await supabase.from(tableName).delete().match({ user_id: currentUserId, [idKey]: doc.id });
+        const { error } = await supabase
+          .from(tableName)
+          .delete()
+          .eq('user_id', currentUserId)
+          .eq(idKey, doc.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from(tableName).insert({ user_id: currentUserId, [idKey]: doc.id });
+        const { error } = await supabase
+          .from(tableName)
+          .insert({ user_id: currentUserId, [idKey]: doc.id });
         if (error) throw error;
       }
     } catch (err) {
+      // Rollback
       setUpvoted(previousUpvoted);
       setUpvoteCount(previousCount);
       toast.error('Không thể thả tim, kiểm tra lại kết nối mạng!');
@@ -238,8 +290,9 @@ export default function DocumentCard({
     const previousBookmarked = bookmarked;
     const nextBookmarked = !bookmarked;
 
+    // Optimistic Update
     setBookmarked(nextBookmarked);
-    onToggleBookmark?.(nextBookmarked);
+    onToggleBookmark?.(doc.id, nextBookmarked);
 
     const tableName = isPostMedia ? 'post_bookmarks' : 'bookmarks';
     const idKey = isPostMedia ? 'post_id' : 'document_id';
@@ -264,14 +317,11 @@ export default function DocumentCard({
         toast.success('Đã lưu bài viết');
       }
     } catch (err: any) {
+      // Rollback
       setBookmarked(previousBookmarked);
-      onToggleBookmark?.(previousBookmarked);
+      onToggleBookmark?.(doc.id, previousBookmarked);
       toast.error('Không thể cập nhật trạng thái lưu: ' + err.message);
     }
-  };
-
-  const toggleCommentsView = () => {
-    setShowComments(!showComments);
   };
 
   const formatFileSize = (bytes: number) => {
@@ -371,7 +421,7 @@ export default function DocumentCard({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition-shadow p-3.5 sm:p-5 space-y-3.5 sm:space-y-4 max-w-full overflow-hidden">
-      {/* Header Post (Avatar, Tên, Nút Kết bạn) */}
+      {/* Header Post */}
       <div className="flex items-center justify-between gap-2 min-w-0">
         <Link
           href={currentUserId === doc.user_id ? '/profile' : `/profile/${doc.user_id}`}
@@ -398,7 +448,7 @@ export default function DocumentCard({
           </div>
         </Link>
 
-        {/* Khung nút điều khiển bên phải header */}
+        {/* Nút Kết Bạn & Nút Xóa */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <FriendButton currentUserId={currentUserId} targetUserId={doc.user_id} />
           {doc.doc_type && (
@@ -418,7 +468,7 @@ export default function DocumentCard({
         </div>
       </div>
 
-      {/* Title & Description */}
+      {/* Nội dung bài viết */}
       <div className="space-y-2">
         {doc.title && (
           <h3 className="font-bold text-slate-900 text-sm sm:text-base line-clamp-2 leading-snug break-words">
@@ -432,7 +482,7 @@ export default function DocumentCard({
           </p>
         )}
 
-        {/* BANNER TĨNH TÀI LIỆU */}
+        {/* Card Banner Tài Liệu File */}
         {doc.file_id && (
           <div className="space-y-2 pt-1">
             <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-[11px]">
@@ -442,7 +492,6 @@ export default function DocumentCard({
               {doc.file_size && <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-medium shrink-0">💾 {formatFileSize(doc.file_size)}</span>}
             </div>
 
-            {/* Static Card Banner View */}
             {(() => {
               const style = getDocBannerStyle(doc.file_name, doc.file_ext);
               return (
@@ -476,7 +525,7 @@ export default function DocumentCard({
           </div>
         )}
 
-        {/* MEDIA ẢNH/VIDEO */}
+        {/* Media Ảnh/Video */}
         {mediaUrls.length > 0 && (
           <div className="pt-2 rounded-xl overflow-hidden border border-slate-200/80 bg-slate-950">
             {doc.media_type === 'video' ? (
@@ -484,9 +533,7 @@ export default function DocumentCard({
             ) : (
               <div
                 className={`grid gap-0.5 ${
-                  mediaUrls.length === 1
-                    ? 'grid-cols-1'
-                    : 'grid-cols-2'
+                  mediaUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
                 }`}
               >
                 {mediaUrls.map((url, idx) => (
@@ -510,9 +557,8 @@ export default function DocumentCard({
         )}
       </div>
 
-      {/* ACTION BAR FULL RESPONSIVE */}
+      {/* Action Bar */}
       <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
-        {/* Nhóm tương tác góc trái: Like, Comment, Bookmark */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <button
             onClick={handleToggleUpvote}
@@ -525,7 +571,7 @@ export default function DocumentCard({
           </button>
 
           <button
-            onClick={toggleCommentsView}
+            onClick={() => setShowComments(!showComments)}
             className={`flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2 py-1.5 rounded-lg transition-colors cursor-pointer ${
               showComments ? 'bg-blue-50 text-blue-600' : 'text-slate-500 hover:bg-slate-100'
             }`}
@@ -546,7 +592,6 @@ export default function DocumentCard({
           </button>
         </div>
 
-        {/* Nhóm hành động góc phải: Chia sẻ, Xem online, Tải về */}
         <div className="flex items-center gap-1 sm:gap-1.5 ml-auto shrink-0">
           <button
             onClick={() => {
@@ -567,7 +612,6 @@ export default function DocumentCard({
 
           {doc.file_id && (
             <>
-              {/* Nút Xem online (-10 Coins) */}
               <button
                 onClick={handleOpenPreview}
                 className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
@@ -577,7 +621,6 @@ export default function DocumentCard({
                 <span className="text-[10px] font-bold text-blue-600 sm:hidden">-10đ</span>
               </button>
 
-              {/* Nút Tải về (-10 Coins) */}
               <button
                 onClick={handleDownload}
                 className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-colors flex items-center gap-1 cursor-pointer shrink-0"
@@ -587,7 +630,6 @@ export default function DocumentCard({
                 <span className="sm:hidden">-10đ</span>
               </button>
 
-              {/* Modal Xem Trực Tiếp On-Demand */}
               <DocPreviewModal
                 isOpen={isPreviewOpen}
                 onClose={() => setIsPreviewOpen(false)}
@@ -600,7 +642,7 @@ export default function DocumentCard({
         </div>
       </div>
 
-      {/* KHUNG BÌNH LUẬN */}
+      {/* Frame Bình luận */}
       {showComments && (
         <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
           <CommentSection

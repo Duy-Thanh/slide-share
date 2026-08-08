@@ -119,49 +119,12 @@ export default function HomePage() {
     }
   };
 
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const updateHeartbeat = async () => {
-      await supabase
-        .from('profiles')
-        .update({ last_seen: new Date().toISOString() })
-        .eq('id', user.id);
-    };
-
-    updateHeartbeat();
-    const interval = setInterval(updateHeartbeat, 60 * 1000);
-
-    const handleUnload = () => {
-      if (user?.id) {
-        const offlineTime = new Date(Date.now() - 185 * 1000).toISOString();
-        navigator.sendBeacon(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}`,
-          JSON.stringify({ last_seen: offlineTime })
-        );
-      }
-    };
-
-    window.addEventListener('beforeunload', handleUnload);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('beforeunload', handleUnload);
-    };
-  }, [user?.id]);
-
+  // Click outside handlers
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (bottomMenuRef.current && !bottomMenuRef.current.contains(event.target as Node)) {
         setIsBottomMenuOpen(false);
       }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
         setIsProfileMenuOpen(false);
       }
@@ -170,6 +133,7 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Friend requests count
   useEffect(() => {
     if (!user?.id) return;
 
@@ -193,29 +157,9 @@ export default function HomePage() {
     };
   }, [user?.id]);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
-      else setProfile(null);
-    });
-
-    fetchTopContributors();
-    fetchTrendingSubjects();
-    return () => subscription.unsubscribe();
-  }, []);
-
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (data) {
-      // 💥 CHECK BAN TRỰC TIẾP
       if (data.is_banned) {
         toast.error('Tài khoản bị khóa vĩnh viễn!', { description: 'Bạn đã bị cấm truy cập hệ thống.' });
         await supabase.auth.signOut();
@@ -236,186 +180,214 @@ export default function HomePage() {
       .limit(5);
 
     if (data) {
-      // 💥 Ép React rerender bằng cách spread ra array mới hoàn toàn
       setTopContributors([...data]);
     }
   }, []);
 
-  const fetchDocs = useCallback(
-    async (isFirstLoad = false) => {
-      if (isFetchingRef.current) return;
-      if (!isFirstLoad && !hasMoreDocs) return;
+  // 💥 HÀM FETCH DOCS CHUẨN - KHÔNG GÂY TÁC DỤNG PHỤ RE-RENDER
+  const fetchDocs = useCallback(async (isFirstLoad = false) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
 
-      isFetchingRef.current = true;
+    if (isFirstLoad) {
+      setHasMoreDocs(true);
+      setInitialLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUid = session?.user?.id;
+
+    let query = supabase
+      .from('documents')
+      .select('*, profiles(*), comments(count)')
+      .order('created_at', { ascending: false });
+
+    if (!isFirstLoad) {
+      setDocItems((prev) => {
+        if (prev.length > 0) {
+          const lastCreatedAt = prev[prev.length - 1].created_at;
+          query = query.lt('created_at', lastCreatedAt);
+        }
+        return prev;
+      });
+    }
+
+    query = query.limit(PAGE_SIZE);
+
+    const { data, error } = await query;
+
+    if (!error && data) {
+      if (data.length < PAGE_SIZE) setHasMoreDocs(false);
+
+      let formattedDocs = data
+        .filter((doc: any) => doc.profiles && !doc.profiles.is_banned)
+        .map((doc: any) => ({
+          ...doc,
+          post_type: 'document',
+          comments_count: doc.comments?.[0]?.count || 0,
+        }));
+
+      if (currentUid && formattedDocs.length > 0) {
+        const docIds = formattedDocs.map((d) => d.id);
+        const [upvotesRes, bookmarksRes] = await Promise.all([
+          supabase.from('upvotes').select('document_id').eq('user_id', currentUid).in('document_id', docIds),
+          supabase.from('bookmarks').select('document_id').eq('user_id', currentUid).in('document_id', docIds),
+        ]);
+
+        const upvotedDocIds = new Set(upvotesRes.data?.map((u) => u.document_id));
+        const bookmarkedDocIds = new Set(bookmarksRes.data?.map((b) => b.document_id));
+
+        formattedDocs = formattedDocs.map((doc) => ({
+          ...doc,
+          has_upvoted: upvotedDocIds.has(doc.id),
+          has_bookmarked: bookmarkedDocIds.has(doc.id),
+        }));
+      }
 
       if (isFirstLoad) {
-        setHasMoreDocs(true);
+        setDocItems(formattedDocs);
       } else {
-        setLoadingMore(true);
+        setDocItems((prev) => {
+          const existingIds = new Set(prev.map((i) => i.id));
+          const newUnique = formattedDocs.filter((i) => !existingIds.has(i.id));
+          return [...prev, ...newUnique];
+        });
       }
+    } else {
+      if (isFirstLoad) setDocItems([]);
+      setHasMoreDocs(false);
+    }
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const currentUid = session?.user?.id;
-
-      let query = supabase
-        .from('documents')
-        .select('*, profiles(*), comments(count)')
-        .order('created_at', { ascending: false });
-
-      if (!isFirstLoad && docItems.length > 0) {
-        const lastCreatedAt = docItems[docItems.length - 1].created_at;
-        query = query.lt('created_at', lastCreatedAt);
-      }
-
-      query = query.limit(PAGE_SIZE);
-
-      const { data, error } = await query;
-
-      if (!error && data) {
-        if (data.length < PAGE_SIZE) setHasMoreDocs(false);
-
-        let formattedDocs = data
-          .filter((doc: any) => doc.profiles && !doc.profiles.is_banned) // 💥 ẨN TÀI LIỆU CỦA NICK BỊ BAN
-          .map((doc: any) => ({
-            ...doc,
-            post_type: 'document',
-            comments_count: doc.comments?.[0]?.count || 0,
-          }));
-
-        if (currentUid && formattedDocs.length > 0) {
-          const docIds = formattedDocs.map((d) => d.id);
-          const [upvotesRes, bookmarksRes] = await Promise.all([
-            supabase.from('upvotes').select('document_id').eq('user_id', currentUid).in('document_id', docIds),
-            supabase.from('bookmarks').select('document_id').eq('user_id', currentUid).in('document_id', docIds),
-          ]);
-
-          const upvotedDocIds = new Set(upvotesRes.data?.map((u) => u.document_id));
-          const bookmarkedDocIds = new Set(bookmarksRes.data?.map((b) => b.document_id));
-
-          formattedDocs = formattedDocs.map((doc) => ({
-            ...doc,
-            has_upvoted: upvotedDocIds.has(doc.id),
-            has_bookmarked: bookmarkedDocIds.has(doc.id),
-          }));
-        }
-
-        if (isFirstLoad) {
-          setDocItems(formattedDocs);
-        } else {
-          setDocItems((prev) => {
-            const existingIds = new Set(prev.map((i) => i.id));
-            const newUnique = formattedDocs.filter((i) => !existingIds.has(i.id));
-            return [...prev, ...newUnique];
-          });
-        }
-      } else {
-        if (isFirstLoad) setDocItems([]);
-        setHasMoreDocs(false);
-      }
-
-      setInitialLoading(false);
-      setLoadingMore(false);
-      isFetchingRef.current = false;
-    },
-    [docItems, hasMoreDocs]
-  );
-
-  const fetchPosts = useCallback(
-    async (isFirstLoad = false) => {
-      if (isFetchingRef.current) return;
-      if (!isFirstLoad && !hasMorePosts) return;
-
-      isFetchingRef.current = true;
-
-      if (isFirstLoad) {
-        setHasMorePosts(true);
-      } else {
-        setLoadingMore(true);
-      }
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const currentUid = session?.user?.id;
-
-      let query = supabase
-        .from('posts')
-        .select('*, profiles(*), comments(count), post_upvotes(count)')
-        .order('created_at', { ascending: false });
-
-      if (!isFirstLoad && postItems.length > 0) {
-        const lastCreatedAt = postItems[postItems.length - 1].created_at;
-        query = query.lt('created_at', lastCreatedAt);
-      }
-
-      query = query.limit(PAGE_SIZE);
-
-      const { data, error } = await query;
-
-      if (!error && data) {
-        if (data.length < PAGE_SIZE) setHasMorePosts(false);
-
-        let formattedPosts = data
-          .filter((post: any) => post.profiles && !post.profiles.is_banned) // 💥 ẨN BÀI VIẾT CỦA NICK BỊ BAN
-          .map((post: any) => ({
-            ...post,
-            post_type: 'post',
-            title: '',
-            comments_count: post.comments?.[0]?.count || 0,
-            upvotes_count: post.post_upvotes?.[0]?.count || 0,
-          }));
-
-        if (currentUid && formattedPosts.length > 0) {
-          const postIds = formattedPosts.map((p) => p.id);
-
-          const [upvotesRes, bookmarksRes] = await Promise.all([
-            supabase.from('post_upvotes').select('post_id').eq('user_id', currentUid).in('post_id', postIds),
-            supabase.from('post_bookmarks').select('post_id').eq('user_id', currentUid).in('post_id', postIds),
-          ]);
-
-          const upvotedPostIds = new Set(upvotesRes.data?.map((p) => p.post_id));
-          const bookmarkedPostIds = new Set(bookmarksRes.data?.map((b) => b.post_id));
-
-          formattedPosts = formattedPosts.map((post) => ({
-            ...post,
-            has_upvoted: upvotedPostIds.has(post.id),
-            has_bookmarked: bookmarkedPostIds.has(post.id),
-          }));
-        }
-
-        if (isFirstLoad) {
-          setPostItems(formattedPosts);
-        } else {
-          setPostItems((prev) => {
-            const existingIds = new Set(prev.map((i) => i.id));
-            const newUnique = formattedPosts.filter((i) => !existingIds.has(i.id));
-            return [...prev, ...newUnique];
-          });
-        }
-      } else {
-        if (isFirstLoad) setPostItems([]);
-        setHasMorePosts(false);
-      }
-
-      setInitialLoading(false);
-      setLoadingMore(false);
-      isFetchingRef.current = false;
-    },
-    [postItems, hasMorePosts]
-  );
-
-  useEffect(() => {
+    setInitialLoading(false);
+    setLoadingMore(false);
     isFetchingRef.current = false;
+  }, []);
+
+  // 💥 HÀM FETCH POSTS CHUẨN
+  const fetchPosts = useCallback(async (isFirstLoad = false) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
+    if (isFirstLoad) {
+      setHasMorePosts(true);
+      setInitialLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUid = session?.user?.id;
+
+    let query = supabase
+      .from('posts')
+      .select('*, profiles(*), comments(count), post_upvotes(count)')
+      .order('created_at', { ascending: false });
+
+    if (!isFirstLoad) {
+      setPostItems((prev) => {
+        if (prev.length > 0) {
+          const lastCreatedAt = prev[prev.length - 1].created_at;
+          query = query.lt('created_at', lastCreatedAt);
+        }
+        return prev;
+      });
+    }
+
+    query = query.limit(PAGE_SIZE);
+
+    const { data, error } = await query;
+
+    if (!error && data) {
+      if (data.length < PAGE_SIZE) setHasMorePosts(false);
+
+      let formattedPosts = data
+        .filter((post: any) => post.profiles && !post.profiles.is_banned)
+        .map((post: any) => ({
+          ...post,
+          post_type: 'post',
+          title: '',
+          comments_count: post.comments?.[0]?.count || 0,
+          upvotes_count: post.post_upvotes?.[0]?.count || 0,
+        }));
+
+      if (currentUid && formattedPosts.length > 0) {
+        const postIds = formattedPosts.map((p) => p.id);
+
+        const [upvotesRes, bookmarksRes] = await Promise.all([
+          supabase.from('post_upvotes').select('post_id').eq('user_id', currentUid).in('post_id', postIds),
+          supabase.from('post_bookmarks').select('post_id').eq('user_id', currentUid).in('post_id', postIds),
+        ]);
+
+        const upvotedPostIds = new Set(upvotesRes.data?.map((p) => p.post_id));
+        const bookmarkedPostIds = new Set(bookmarksRes.data?.map((b) => b.post_id));
+
+        formattedPosts = formattedPosts.map((post) => ({
+          ...post,
+          has_upvoted: upvotedPostIds.has(post.id),
+          has_bookmarked: bookmarkedPostIds.has(post.id),
+        }));
+      }
+
+      if (isFirstLoad) {
+        setPostItems(formattedPosts);
+      } else {
+        setPostItems((prev) => {
+          const existingIds = new Set(prev.map((i) => i.id));
+          const newUnique = formattedPosts.filter((i) => !existingIds.has(i.id));
+          return [...prev, ...newUnique];
+        });
+      }
+    } else {
+      if (isFirstLoad) setPostItems([]);
+      setHasMorePosts(false);
+    }
+
+    setInitialLoading(false);
+    setLoadingMore(false);
+    isFetchingRef.current = false;
+  }, []);
+
+  // 💥 EFFECT CHÍNH: TRIGGER FETCH FEED KHI TỰ THAY ĐỔI ĐIỀU KIỆN LỌC (CHẮC CHẮN KHÔNG LẶP VÔ TẬN)
+  useEffect(() => {
     if (feedType === 'docs') {
-      if (docItems.length === 0) setInitialLoading(true);
       fetchDocs(true);
     } else {
-      if (postItems.length === 0) setInitialLoading(true);
       fetchPosts(true);
     }
-  }, [feedType, activeTab, selectedFaculty, selectedDocType]);
+  }, [feedType, activeTab, selectedFaculty, selectedDocType, fetchDocs, fetchPosts]);
+
+  // 💥 AUTH LISTENER TÁCH BIỆT: CHỈ CHẠY 1 LẦN VÀ XỬ LÝ AUTH STATE
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      if (u) fetchProfile(u.id);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const newUser = session?.user ?? null;
+      setUser(newUser);
+
+      if (newUser) {
+        fetchProfile(newUser.id);
+      } else {
+        setProfile(null);
+      }
+
+      // Refresh lại feed khi auth đổi
+      if (feedType === 'docs') fetchDocs(true);
+      else fetchPosts(true);
+
+      fetchTopContributors();
+    });
+
+    fetchTopContributors();
+    fetchTrendingSubjects();
+
+    return () => subscription.unsubscribe();
+  }, []); // Empty dependency array -> Tuyệt đối không lặp!
 
   const filteredDocs = docItems
     .filter((doc) => {
@@ -436,6 +408,7 @@ export default function HomePage() {
   const currentHasMore = feedType === 'docs' ? hasMoreDocs : hasMorePosts;
   const currentFeedList = feedType === 'docs' ? filteredDocs : postItems;
 
+  // Infinite Scroll Observer
   useEffect(() => {
     const element = observerTarget.current;
     if (!element) return;
@@ -463,7 +436,7 @@ export default function HomePage() {
     };
   }, [feedType, hasMoreDocs, hasMorePosts, initialLoading, fetchDocs, fetchPosts]);
 
-  // 💥 LẮNG NGHE BẢNG PROFILES ĐỂ TỰ ĐỘNG CẬP NHẬT TOP ĐÓNG GÓP REAL-TIME
+  // Realtime Profiles Points
   useEffect(() => {
     const channel = supabase
       .channel('realtime_profiles_points')
@@ -487,8 +460,6 @@ export default function HomePage() {
 
   const handlePointsChange = useCallback((newPoints: number) => {
     setProfile((prev) => (prev ? { ...prev, points: newPoints } : null));
-
-    // Cập nhật lại danh sách Top
     fetchTopContributors();
   }, [fetchTopContributors]);
 
@@ -500,11 +471,20 @@ export default function HomePage() {
     }
   };
 
-  const handleUploadSuccess = (newPoints: number) => {
-    // Update ngay điểm Header & Sidebar
-    if (profile) setProfile((prev) => (prev ? { ...prev, points: newPoints } : null));
+  const handleToggleBookmarkInHome = (docId: string, isBookmarked: boolean) => {
+    if (feedType === 'docs') {
+      setDocItems((prev) =>
+        prev.map((item) => (item.id === docId ? { ...item, has_bookmarked: isBookmarked } : item))
+      );
+    } else {
+      setPostItems((prev) =>
+        prev.map((item) => (item.id === docId ? { ...item, has_bookmarked: isBookmarked } : item))
+      );
+    }
+  };
 
-    // Fetch lại feed bài viết & Top đóng góp
+  const handleUploadSuccess = (newPoints: number) => {
+    if (profile) setProfile((prev) => (prev ? { ...prev, points: newPoints } : null));
     if (feedType === 'docs') fetchDocs(true);
     else fetchPosts(true);
 
@@ -663,7 +643,7 @@ export default function HomePage() {
         )}
       </header>
 
-      {/* CONTAINER CHÍNH CHUẨN GRID */}
+      {/* CONTAINER CHÍNH */}
       <div className="max-w-7xl mx-auto px-2 sm:px-4 grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6 items-start">
         
         {/* CỘT 1: LEFT SIDEBAR */}
@@ -881,6 +861,7 @@ export default function HomePage() {
                   currentUserId={user?.id}
                   currentUserPoints={profile?.points || 0}
                   onDelete={handleDeleteInHome}
+                  onToggleBookmark={(docId, isBookmarked) => handleToggleBookmarkInHome(docId, isBookmarked)}
                   onPointsChange={handlePointsChange}
                 />
               ))
@@ -1001,7 +982,7 @@ export default function HomePage() {
             onClose={() => setIsUploadOpen(false)}
             userId={user.id}
             userPoints={profile?.points || 0}
-            onUploadSuccess={handleUploadSuccess} // 💥 Dùng handleUploadSuccess thay vì handleRefreshFeed
+            onUploadSuccess={handleUploadSuccess}
           />
 
           <CreatePostModal
