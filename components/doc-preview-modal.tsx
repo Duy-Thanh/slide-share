@@ -26,7 +26,7 @@ export default function DocPreviewModal({
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [excelHtml, setExcelHtml] = useState<string | null>(null);
-  const [authenticatedUrl, setAuthenticatedUrl] = useState<string>('');
+  const [authenticatedUrl, setAuthenticatedUrl] = useState<string | null>(null);
 
   // States cho PPTX
   const [pptxSlideCount, setPptxSlideCount] = useState(0);
@@ -48,6 +48,7 @@ export default function DocPreviewModal({
       setExcelHtml(null);
       setPptxSlideCount(0);
       setCurrentSlide(0);
+      setAuthenticatedUrl(null); // Reset về null để không bị dính src=""
 
       // 1. Lấy Auth Token từ Supabase Client
       const { data: { session } } = await supabase.auth.getSession();
@@ -160,9 +161,11 @@ export default function DocPreviewModal({
   if (!isOpen) return null;
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const absoluteFileUrl = authenticatedUrl.startsWith('http')
-    ? authenticatedUrl
-    : `${origin}${authenticatedUrl}`;
+  const absoluteFileUrl = authenticatedUrl
+    ? authenticatedUrl.startsWith('http')
+      ? authenticatedUrl
+      : `${origin}${authenticatedUrl}`
+    : '';
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
@@ -209,16 +212,16 @@ export default function DocPreviewModal({
             </div>
           )}
 
-          {/* 1. PDF */}
-          {ext === 'pdf' && (
+          {/* 1. PDF - CHỈ RENDER KHI CÓ AUTHENTICATED URL */}
+          {ext === 'pdf' && authenticatedUrl && (
             <iframe
               src={authenticatedUrl}
               className="w-full h-full rounded-xl border-none shadow-sm"
             />
           )}
 
-          {/* 2. Ảnh */}
-          {['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext) && (
+          {/* 2. Ảnh - CHỈ RENDER KHI CÓ AUTHENTICATED URL */}
+          {['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext) && authenticatedUrl && (
             <img
               src={authenticatedUrl}
               alt={fileName}
@@ -234,7 +237,7 @@ export default function DocPreviewModal({
             />
           )}
 
-          {ext === 'doc' && (
+          {ext === 'doc' && absoluteFileUrl && (
             <iframe
               src={`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(absoluteFileUrl)}`}
               className="w-full h-full rounded-xl border-none shadow-sm"
@@ -258,7 +261,7 @@ export default function DocPreviewModal({
           {/* 5. PowerPoint (.pptx Client & .ppt Fallback) */}
           {['pptx', 'ppt'].includes(ext) && (
             <>
-              {ext === 'ppt' ? (
+              {ext === 'ppt' && absoluteFileUrl ? (
                 <iframe
                   src={`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(absoluteFileUrl)}`}
                   className="w-full h-full rounded-xl border-none shadow-sm"

@@ -6,6 +6,7 @@ import { Conversation, Profile } from '@/types/database';
 import UserAvatar from '@/components/user-avatar';
 import UserBadge from '@/components/user-badge';
 import { MessageSquare, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Props {
   currentUserId?: string;
@@ -38,7 +39,6 @@ export default function ChatListPopover({ currentUserId }: Props) {
   useEffect(() => {
     if (!currentUserId) return;
 
-    // Tạo Channel Name unique hoàn toàn cho từng instance component
     const channelName = `realtime-conversations-${currentUserId}-${Math.random().toString(36).substring(2, 7)}`;
 
     const channel = supabase
@@ -72,19 +72,30 @@ export default function ChatListPopover({ currentUserId }: Props) {
       .order('updated_at', { ascending: false });
 
     if (data) {
-      const formatted = data.map((conv) => {
-        const partner = conv.user1_id === currentUserId ? conv.user2 : conv.user1;
-        return {
-          ...conv,
-          partner,
-        };
-      });
+      const formatted = data
+        .map((conv) => {
+          const partner = conv.user1_id === currentUserId ? conv.user2 : conv.user1;
+          return {
+            ...conv,
+            partner,
+          };
+        })
+        // 💥 LỌC SẠCH: ẨN CUỘC TRÒ CHUYỆN VỚI NHỮNG ACC ĐÃ BỊ BAN
+        .filter((conv) => conv.partner && !conv.partner.is_banned);
+
       setConversations(formatted);
     }
     setLoading(false);
   };
 
   const handleOpenChat = (partner: Profile) => {
+    if (!partner || partner.is_banned) {
+      toast.error('Không thể nhắn tin!', {
+        description: 'Tài khoản này đã bị khóa do vi phạm quy định cộng đồng.',
+      });
+      return;
+    }
+
     setIsOpen(false);
     window.dispatchEvent(
       new CustomEvent('openChatWithUser', {

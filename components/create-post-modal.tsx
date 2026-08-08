@@ -36,7 +36,6 @@ export default function CreatePostModal({ isOpen, onClose, userId, onPostSuccess
   };
 
   const handleRemoveMedia = (index: number) => {
-    // Dọn dẹp memory leak Object URL
     if (previews[index]?.url) {
       URL.revokeObjectURL(previews[index].url);
     }
@@ -62,21 +61,37 @@ export default function CreatePostModal({ isOpen, onClose, userId, onPostSuccess
 
     setUploading(true);
     try {
-      // 1. Upload toàn bộ media lên Telegram Storage
+      // 💥 1. BẢO VỆ: CHECK TRẠNG THÁI BAN TRƯỚC KHIN UPLOAD MEDIA
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_banned')
+        .eq('id', userId)
+        .single();
+
+      if (profile?.is_banned) {
+        await supabase.auth.signOut();
+        toast.error('Tài khoản bị khóa!', {
+          description: 'Tài khoản của bạn đã bị BAN vĩnh viễn, không thể đăng bài.',
+        });
+        handleClose();
+        window.location.href = '/';
+        return;
+      }
+
+      // 2. Upload media lên Telegram Storage
       const uploadedUrls: string[] = [];
       for (const file of selectedFiles) {
         const telegramUrl = await uploadMediaToTelegram(file);
         uploadedUrls.push(telegramUrl);
       }
 
-      // Xác định loại media chính
       const mediaType = selectedFiles.length === 0 
         ? 'none' 
         : selectedFiles[0].type.startsWith('video/') 
         ? 'video' 
         : 'image';
 
-      // 2. Lưu thông tin Post vào Supabase
+      // 3. Lưu Post vào Supabase
       const { error } = await supabase.from('posts').insert({
         user_id: userId,
         content: content.trim(),

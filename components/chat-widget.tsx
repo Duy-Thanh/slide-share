@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Profile, MessageItem } from '@/types/database';
 import UserAvatar from '@/components/user-avatar';
 import UserBadge from '@/components/user-badge';
-import { MessageSquare, X, Send, Loader2, Minus, Maximize2 } from 'lucide-react';
+import { MessageSquare, X, Send, Loader2, Minus, Maximize2, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
@@ -22,7 +22,7 @@ export default function ChatWidget() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. Tự động lấy currentUserId từ Supabase Session
+  // 1. Tự động lấy currentUserId từ Supabase Session & Check Ban chính mình
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setCurrentUserId(session?.user?.id ?? null);
@@ -43,12 +43,37 @@ export default function ChatWidget() {
       const { user } = e.detail;
       if (!user) return;
 
+      // 💥 CHẶN NGAY: NẾU NGƯỜI NHẬN BỊ BAN
+      if (user.is_banned) {
+        toast.error('Không thể trò chuyện!', {
+          description: 'Tài khoản này đã bị khóa vĩnh viễn do vi phạm quy định.',
+        });
+        return;
+      }
+
+      // Check xem chính mình có bị BAN không
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+
+      if (uid) {
+        const { data: myProfile } = await supabase
+          .from('profiles')
+          .select('is_banned')
+          .eq('id', uid)
+          .single();
+
+        if (myProfile?.is_banned) {
+          toast.error('Tài khoản bị khóa!', {
+            description: 'Bạn đã bị BAN vĩnh viễn, đéo thể gửi tin nhắn!',
+          });
+          return;
+        }
+      }
+
       setTargetUser(user);
       setIsOpen(true);
       setIsMinimized(false);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      const uid = session?.user?.id;
       if (uid && user.id !== uid) {
         setCurrentUserId(uid);
         await initConversation(uid, user.id);
@@ -95,7 +120,7 @@ export default function ChatWidget() {
     };
   }, [conversationId]);
 
-  // Tìm hoặc Tạo hội thoại mới giữa 2 người
+  // Tìm hoặc Tạo hội thoại mới
   const initConversation = async (myId: string, partnerId: string) => {
     setLoading(true);
 
@@ -141,6 +166,25 @@ export default function ChatWidget() {
     e.preventDefault();
     if (!inputMessage.trim() || !conversationId || !currentUserId || sending) return;
 
+    // 💥 RE-CHECK BAN TRƯỚC KHIN TIẾN HÀNH GỬI
+    const { data: myProfile } = await supabase
+      .from('profiles')
+      .select('is_banned')
+      .eq('id', currentUserId)
+      .single();
+
+    if (myProfile?.is_banned) {
+      toast.error('Tài khoản bị khóa!', { description: 'Tài khoản của bạn đã bị BAN vĩnh viễn.' });
+      setIsOpen(false);
+      return;
+    }
+
+    if (targetUser?.is_banned) {
+      toast.error('Không thể gửi!', { description: 'Đối phương đã bị khóa tài khoản.' });
+      setIsOpen(false);
+      return;
+    }
+
     const text = inputMessage.trim();
     setInputMessage('');
     setSending(true);
@@ -169,7 +213,7 @@ export default function ChatWidget() {
     }
   };
 
-  if (!isOpen || !currentUserId || !targetUser) return null;
+  if (!isOpen || !currentUserId || !targetUser || targetUser.is_banned) return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50 w-80 sm:w-88 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col transition-all duration-200">

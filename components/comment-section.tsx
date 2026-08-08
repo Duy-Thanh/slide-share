@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 
 interface Props {
   documentId?: string;
-  postId?: string; // 💥 Bổ sung hỗ trợ bài viết Bảng tin
+  postId?: string;
   currentUserId?: string;
   onCommentCountChange?: (count: number) => void;
 }
@@ -23,7 +23,6 @@ interface ExtendedComment extends CommentItem {
   has_liked?: boolean;
 }
 
-// Helper render nội dung cmt, tự nhận diện @Mention để biến thành Link nhảy Profile
 function FormattedCommentText({
   content,
   userList = [],
@@ -47,7 +46,7 @@ function FormattedCommentText({
               u.full_name?.replace(/\s+/g, '_').toLowerCase() === word.substring(1).toLowerCase()
           );
 
-          if (matchedUser) {
+          if (matchedUser && !matchedUser.is_banned) {
             const profileHref =
               currentUserId === matchedUser.id ? '/profile' : `/profile/${matchedUser.id}`;
 
@@ -89,7 +88,6 @@ export default function CommentSection({
   const [replyingTo, setReplyingTo] = useState<{ id: string; name: string } | null>(null);
   const [sending, setSending] = useState(false);
 
-  // States cho Autocomplete @Tag
   const [userList, setUserList] = useState<Profile[]>([]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [showMentionPopup, setShowMentionPopup] = useState(false);
@@ -105,7 +103,11 @@ export default function CommentSection({
   }, [targetId]);
 
   const fetchUsersForMention = async () => {
-    const { data } = await supabase.from('profiles').select('*').limit(20);
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('is_banned', false)
+      .limit(20);
     if (data) setUserList(data);
   };
 
@@ -123,10 +125,12 @@ export default function CommentSection({
     const { data, error } = await query.order('created_at', { ascending: true });
 
     if (!error && data) {
-      let formatted: ExtendedComment[] = data.map((c: any) => ({
-        ...c,
-        likes_count: c.comment_likes?.[0]?.count || 0,
-      }));
+      let formatted: ExtendedComment[] = data
+        .filter((c: any) => c.profiles && !c.profiles.is_banned) // 💥 ẨN BÌNH LUẬN CỦA NICK BỊ BAN
+        .map((c: any) => ({
+          ...c,
+          likes_count: c.comment_likes?.[0]?.count || 0,
+        }));
 
       if (currentUserId && formatted.length > 0) {
         const commentIds = formatted.map((c) => c.id);
@@ -178,6 +182,17 @@ export default function CommentSection({
   const handleToggleLikeComment = async (commentId: string, hasLiked?: boolean, currentLikes = 0) => {
     if (!currentUserId) return toast.warning('Đăng nhập để thả tim bình luận nhé!');
 
+    // Check BAN trước khi thích
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_banned')
+      .eq('id', currentUserId)
+      .single();
+
+    if (profile?.is_banned) {
+      return toast.error('Tài khoản bị khóa vĩnh viễn, đéo thể thả tim!');
+    }
+
     setComments((prev) =>
       prev.map((c) => {
         if (c.id === commentId) {
@@ -211,6 +226,22 @@ export default function CommentSection({
     e.preventDefault();
     if (!currentUserId) return toast.warning('Vui lòng đăng nhập!');
     if (!inputText.trim() || sending) return;
+
+    // 💥 CHECK BAN TRƯỚC KHIN TIẾN HÀNH BÌNH LUẬN
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_banned')
+      .eq('id', currentUserId)
+      .single();
+
+    if (profile?.is_banned) {
+      toast.error('Tài khoản bị khóa!', {
+        description: 'Tài khoản của bạn đã bị BAN vĩnh viễn, đéo thể bình luận.',
+      });
+      await supabase.auth.signOut();
+      window.location.href = '/';
+      return;
+    }
 
     setSending(true);
     const contentToSend = inputText.trim();
