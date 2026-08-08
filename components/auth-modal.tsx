@@ -21,14 +21,12 @@ export default function AuthModal({
 
   if (!isOpen) return null;
 
-  // Hàm lấy origin chuẩn cho cả Dev lẫn Production
   const getURL = () => {
     let url =
-      process.env.NEXT_PUBLIC_SITE_URL ?? // Cấu hình domain prod trong .env nếu có
-      process.env.NEXT_PUBLIC_VERCEL_URL ?? // Tự bắt URL Vercel nếu deploy trên Vercel
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      process.env.NEXT_PUBLIC_VERCEL_URL ??
       'http://localhost:3000/';
     
-    // Đảm bảo có https:// và kết thúc không bị thừa dấu /
     url = url.includes('http') ? url : `https://${url}`;
     url = url.charAt(url.length - 1) === '/' ? url : `${url}/`;
     return url;
@@ -38,7 +36,9 @@ export default function AuthModal({
   const handleGoogleAuth = async () => {
     setGoogleLoading(true);
     try {
-      const redirectUrl = `${getURL()}auth/callback`;
+      // Nếu Đăng ký -> Callback sẽ kèm ?next=/auth/verify-email
+      const callbackPath = isSignUp ? 'auth/callback?next=/auth/verify-email' : 'auth/callback';
+      const redirectUrl = `${getURL()}${callbackPath}`;
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -46,7 +46,7 @@ export default function AuthModal({
           queryParams: {
             faculty_choice: isSignUp ? faculty : '',
           },
-          redirectTo: redirectUrl, // 💥 Truyền URL Callback chuẩn theo môi trường
+          redirectTo: redirectUrl,
         },
       });
 
@@ -57,7 +57,7 @@ export default function AuthModal({
     }
   };
 
-  // ĐĂNG NHẬP FORM EMAIL / PASSWORD (DÀNH CHO TAB LOG IN)
+  // ĐĂNG NHẬP FORM EMAIL / PASSWORD
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -70,8 +70,8 @@ export default function AuthModal({
 
       if (error) throw error;
 
-      // CHECK BAN KHI ĐĂNG NHẬP THÀNH CÔNG
       if (signInData.user) {
+        // Check BAN
         const { data: profile } = await supabase
           .from('profiles')
           .select('is_banned')
@@ -84,6 +84,16 @@ export default function AuthModal({
             description: 'Tài khoản của bạn đã bị BAN vĩnh viễn do vi phạm quy định.',
           });
           setLoading(false);
+          return;
+        }
+
+        // Check xem user đã xác minh email chưa
+        if (!signInData.user.email_confirmed_at) {
+          toast.warning('Tài khoản chưa xác minh Email!', {
+            description: 'Vui lòng kiểm tra hộp thư để kích hoạt tài khoản.',
+          });
+          onClose();
+          window.location.href = '/auth/verify-email';
           return;
         }
       }
@@ -113,12 +123,12 @@ export default function AuthModal({
           </h2>
           <p className="text-xs text-slate-500 font-medium">
             {isSignUp
-              ? 'Để hạn chế nick ảo, hệ thống yêu cầu đăng ký bằng Google'
+              ? 'Đăng ký bằng Google và xác minh Email để bảo mật tài khoản'
               : 'Đăng nhập để xem & tải tài liệu học tập'}
           </p>
         </div>
 
-        {/* --- FORM ĐĂNG KÝ (BẮT BUỘC GOOGLE OAUTH) --- */}
+        {/* --- FORM ĐĂNG KÝ (BẮT BUỘC GOOGLE OAUTH & CONFIRM) --- */}
         {isSignUp ? (
           <div className="space-y-4 pt-1">
             <div>
@@ -170,11 +180,11 @@ export default function AuthModal({
                   />
                 </svg>
               )}
-              <span>Đăng ký nhanh bằng Google (+50đ)</span>
+              <span>Đăng ký qua Google (+50đ)</span>
             </button>
           </div>
         ) : (
-          /* --- FORM ĐĂNG NHẬP (CÓ ĐỦ GOOGLE LẪN EMAIL) --- */
+          /* --- FORM ĐĂNG NHẬP --- */
           <div className="space-y-3">
             <button
               type="button"

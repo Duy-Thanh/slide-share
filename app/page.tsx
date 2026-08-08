@@ -44,6 +44,18 @@ export default function HomePage() {
   const [docItems, setDocItems] = useState<any[]>([]);
   const [postItems, setPostItems] = useState<any[]>([]);
 
+  // Dùng Ref để lưu bài viết cuối cùng, tránh bị bug React state asynchronous khi fetch infinite scroll
+  const docItemsRef = useRef<any[]>([]);
+  const postItemsRef = useRef<any[]>([]);
+
+  useEffect(() => {
+    docItemsRef.current = docItems;
+  }, [docItems]);
+
+  useEffect(() => {
+    postItemsRef.current = postItems;
+  }, [postItems]);
+
   const [profile, setProfile] = useState<Profile | null>(null);
   const [user, setUser] = useState<any>(null);
 
@@ -184,7 +196,7 @@ export default function HomePage() {
     }
   }, []);
 
-  // 💥 HÀM FETCH DOCS CHUẨN - KHÔNG GÂY TÁC DỤNG PHỤ RE-RENDER
+  // 💥 FIX LỖI 2: HÀM FETCH DOCS CHUẨN - TẢI THÊM TRÂN TRU BẰNG REF
   const fetchDocs = useCallback(async (isFirstLoad = false) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
@@ -204,14 +216,10 @@ export default function HomePage() {
       .select('*, profiles(*), comments(count)')
       .order('created_at', { ascending: false });
 
-    if (!isFirstLoad) {
-      setDocItems((prev) => {
-        if (prev.length > 0) {
-          const lastCreatedAt = prev[prev.length - 1].created_at;
-          query = query.lt('created_at', lastCreatedAt);
-        }
-        return prev;
-      });
+    // Lấy timestamp bài viết cuối cùng chính xác từ Ref
+    if (!isFirstLoad && docItemsRef.current.length > 0) {
+      const lastCreatedAt = docItemsRef.current[docItemsRef.current.length - 1].created_at;
+      query = query.lt('created_at', lastCreatedAt);
     }
 
     query = query.limit(PAGE_SIZE);
@@ -265,7 +273,7 @@ export default function HomePage() {
     isFetchingRef.current = false;
   }, []);
 
-  // 💥 HÀM FETCH POSTS CHUẨN
+  // 💥 FIX LỖI 2: HÀM FETCH POSTS CHUẨN
   const fetchPosts = useCallback(async (isFirstLoad = false) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
@@ -285,14 +293,10 @@ export default function HomePage() {
       .select('*, profiles(*), comments(count), post_upvotes(count)')
       .order('created_at', { ascending: false });
 
-    if (!isFirstLoad) {
-      setPostItems((prev) => {
-        if (prev.length > 0) {
-          const lastCreatedAt = prev[prev.length - 1].created_at;
-          query = query.lt('created_at', lastCreatedAt);
-        }
-        return prev;
-      });
+    // Lấy timestamp bài viết cuối cùng chính xác từ Ref
+    if (!isFirstLoad && postItemsRef.current.length > 0) {
+      const lastCreatedAt = postItemsRef.current[postItemsRef.current.length - 1].created_at;
+      query = query.lt('created_at', lastCreatedAt);
     }
 
     query = query.limit(PAGE_SIZE);
@@ -349,7 +353,7 @@ export default function HomePage() {
     isFetchingRef.current = false;
   }, []);
 
-  // 💥 EFFECT CHÍNH: TRIGGER FETCH FEED KHI TỰ THAY ĐỔI ĐIỀU KIỆN LỌC (CHẮC CHẮN KHÔNG LẶP VÔ TẬN)
+  // TRIGGER FETCH FEED KHI THAY ĐỔI TAB LỌC
   useEffect(() => {
     if (feedType === 'docs') {
       fetchDocs(true);
@@ -358,7 +362,7 @@ export default function HomePage() {
     }
   }, [feedType, activeTab, selectedFaculty, selectedDocType, fetchDocs, fetchPosts]);
 
-  // 💥 AUTH LISTENER TÁCH BIỆT: CHỈ CHẠY 1 LẦN VÀ XỬ LÝ AUTH STATE
+  // 💥 FIX LỖI 1: BỎ HOÀN TOÀN TÁC DỤNG PHỤ RE-FETCH FEED TRONG AUTH LISTENER
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user ?? null;
@@ -366,7 +370,7 @@ export default function HomePage() {
       if (u) fetchProfile(u.id);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const newUser = session?.user ?? null;
       setUser(newUser);
 
@@ -376,9 +380,11 @@ export default function HomePage() {
         setProfile(null);
       }
 
-      // Refresh lại feed khi auth đổi
-      if (feedType === 'docs') fetchDocs(true);
-      else fetchPosts(true);
+      // Chỉ re-fetch khi THỰC SỰ ĐĂNG NHẬP HOẶC ĐĂNG XUẤT (Bỏ qua sự kiện TOKEN_REFRESHED khi focus tab)
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        if (feedType === 'docs') fetchDocs(true);
+        else fetchPosts(true);
+      }
 
       fetchTopContributors();
     });
@@ -387,7 +393,7 @@ export default function HomePage() {
     fetchTrendingSubjects();
 
     return () => subscription.unsubscribe();
-  }, []); // Empty dependency array -> Tuyệt đối không lặp!
+  }, []);
 
   const filteredDocs = docItems
     .filter((doc) => {
