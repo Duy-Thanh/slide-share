@@ -137,27 +137,23 @@ export default function SettingsPage() {
 
   const handleDeleteAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (confirmText !== 'XÓA TÀI KHOẢN') {
-      toast.error('Cụm từ xác nhận không chính xác!');
-      return;
+    if (confirmText !== 'TOI DA HIEU') {
+        toast.error('Cụm từ xác nhận không chính xác!');
+        return;
     }
 
     setDeleting(true);
     try {
-      const { error: profileErr } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', user.id);
+        // Gọi thẳng vào database function để xóa user trong auth
+        const { error: rpcErr } = await supabase.rpc('delete_user');
+        
+        if (rpcErr) throw rpcErr;
 
-      if (profileErr) throw profileErr;
-
-      await supabase.auth.signOut();
-
-      toast.success('Tài khoản của bạn đã được xóa thành công!');
-      router.push('/');
+        toast.success('Tài khoản đã bị xoá vĩnh viễn!');
+        router.push('/');
     } catch (err: any) {
-      toast.error('Xóa tài khoản thất bại!', { description: err.message });
-      setDeleting(false);
+        toast.error('Xóa tài khoản thất bại!', { description: err.message });
+        setDeleting(false);
     }
   };
 
@@ -302,7 +298,7 @@ export default function SettingsPage() {
             >
               <div className="flex items-center gap-3">
                 <UserX className="w-4 h-4 text-rose-600" />
-                <span>Sở hữu & Kiểm soát</span>
+                <span>Quyền sở hữu & Kiểm soát</span>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </button>
@@ -505,7 +501,7 @@ export default function SettingsPage() {
               <div>
                 <h2 className="text-sm sm:text-base font-extrabold text-slate-900">Quyền sở hữu & Kiểm soát tài khoản</h2>
                 <p className="text-[11px] sm:text-xs text-slate-500 font-medium">
-                  Quản lý dữ liệu, quyền truy cập và tùy chọn vô hiệu hóa hoặc xóa tài khoản của bạn.
+                  Quản lý dữ liệu, quyền truy cập và tùy chọn vô hiệu hóa hoặc xóa tài khoản của bạn
                 </p>
               </div>
 
@@ -540,7 +536,7 @@ export default function SettingsPage() {
                         : 'bg-rose-600 hover:bg-rose-700 text-white shadow-xs cursor-pointer'
                     }`}
                   >
-                    {isAdmin ? 'Đã khóa' : 'Xóa nick'}
+                    {isAdmin ? 'Đã khóa' : 'Xóa tài khoản'}
                   </button>
                 </div>
               </div>
@@ -632,7 +628,7 @@ export default function SettingsPage() {
             <div className="text-center space-y-1">
               <h3 className="text-base font-extrabold text-slate-900">Xóa tài khoản vĩnh viễn?</h3>
               <p className="text-xs text-slate-500 font-medium">
-                Hành động này <b className="text-rose-600">KHÔNG THỂ KHÔI PHỤC</b>. Để xác nhận, vui lòng nhập chuỗi <span className="font-extrabold text-slate-900 select-all bg-slate-100 px-1 py-0.5 rounded">XÓA TÀI KHOẢN</span> vào ô bên dưới
+                Hành động này <b className="text-rose-600">KHÔNG THỂ KHÔI PHỤC</b>. Để xác nhận, vui lòng nhập chuỗi <span className="font-extrabold text-slate-900 select-all bg-slate-100 px-1 py-0.5 rounded">TOI DA HIEU</span> vào ô bên dưới
               </p>
             </div>
 
@@ -644,7 +640,7 @@ export default function SettingsPage() {
                   value={confirmText}
                   onChange={(e) => setConfirmText(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-rose-500 font-bold text-center text-slate-900"
-                  placeholder="XÓA TÀI KHOẢN"
+                  placeholder="TOI DA HIEU"
                 />
               </div>
 
@@ -658,7 +654,7 @@ export default function SettingsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={deleting || confirmText !== 'XÓA TÀI KHOẢN'}
+                  disabled={deleting || confirmText !== 'TOI DA HIEU'}
                   className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {deleting ? (
