@@ -3,6 +3,7 @@ import { Toaster } from 'sonner';
 import { Inter, JetBrains_Mono } from "next/font/google";
 import ChatWidget from '@/components/chat-widget';
 import "./globals.css";
+import { GoogleAnalytics } from '@next/third-parties/google';
 
 const inter = Inter({
   variable: "--font-inter",
@@ -29,11 +30,14 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const gaId = process.env.NEXT_PUBLIC_GA_ID;
+  
   return (
     <html
       lang="vi"
       className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
+      {gaId && <GoogleAnalytics gaId={gaId} />}
       <body className={`${inter.className} min-h-full flex flex-col bg-[#f0f2f5]`}>
         {children}
         <ChatWidget />
