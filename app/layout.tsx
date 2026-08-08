@@ -4,6 +4,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import ChatWidget from '@/components/chat-widget';
 import "./globals.css";
 import { GoogleAnalytics } from '@next/third-parties/google';
+import { WebVitals } from './vitals';
 
 const inter = Inter({
   variable: "--font-inter",
@@ -42,6 +43,7 @@ export default function RootLayout({
         <ChatWidget />
         <Toaster position="top-right" richColors closeButton />
         {gaId && <GoogleAnalytics gaId={gaId} />}
+        <WebVitals />
       </body>
     </html>
   );
