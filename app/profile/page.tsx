@@ -364,7 +364,7 @@ export default function ProfilePage() {
                   doc={doc}
                   currentUserId={user?.id}
                   currentUserPoints={profile?.points || 0}
-                  onToggleBookmark={(isBookmarked) => handleToggleBookmarkInProfile(doc, isBookmarked)}
+                  onToggleBookmark={(_docId, isBookmarked) => handleToggleBookmarkInProfile(doc, isBookmarked)}
                   onDelete={handleDeleteInProfile}
                   onPointsChange={handlePointsChangeInProfile}
                 />
@@ -385,7 +385,7 @@ export default function ProfilePage() {
                   doc={doc}
                   currentUserId={user?.id}
                   currentUserPoints={profile?.points || 0}
-                  onToggleBookmark={(isBookmarked) => handleToggleBookmarkInProfile(doc, isBookmarked)}
+                  onToggleBookmark={(_docId, isBookmarked) => handleToggleBookmarkInProfile(doc, isBookmarked)}
                   onDelete={handleDeleteInProfile}
                   onPointsChange={handlePointsChangeInProfile}
                 />
