@@ -6,6 +6,7 @@ import XLSX from 'xlsx-js-style';
 // @ts-ignore
 import { PptxRenderer } from 'pptx-browser';
 import { X, Download, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface Props {
   fileUrl: string;
@@ -25,6 +26,7 @@ export default function DocPreviewModal({
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [excelHtml, setExcelHtml] = useState<string | null>(null);
+  const [authenticatedUrl, setAuthenticatedUrl] = useState<string>('');
 
   // States cho PPTX
   const [pptxSlideCount, setPptxSlideCount] = useState(0);
@@ -36,42 +38,53 @@ export default function DocPreviewModal({
   const ext = fileName.split('.').pop()?.toLowerCase() || '';
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !fileUrl) return;
 
-    setLoading(true);
-    setErrorMsg(null);
-    setExcelHtml(null);
-    setPptxSlideCount(0);
-    setCurrentSlide(0);
+    let isMounted = true;
 
-    // 1. File Word (.docx / .doc)
-    if (ext === 'docx') {
-      fetch(fileUrl)
-        .then((res) => {
-          if (!res.ok) throw new Error('Không tải được file');
-          return res.blob();
-        })
-        .then((blob) => {
-          if (docxContainerRef.current) {
+    const loadDocument = async () => {
+      setLoading(true);
+      setErrorMsg(null);
+      setExcelHtml(null);
+      setPptxSlideCount(0);
+      setCurrentSlide(0);
+
+      // 1. Lấy Auth Token từ Supabase Client
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      // Nối Token vào Query Param cho iframe/embed
+      const authUrl = token
+        ? `${fileUrl}${fileUrl.includes('?') ? '&' : '?'}token=${token}`
+        : fileUrl;
+
+      if (isMounted) {
+        setAuthenticatedUrl(authUrl);
+      }
+
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+      try {
+        // 1. File Word (.docx / .doc)
+        if (ext === 'docx') {
+          const res = await fetch(fileUrl, { headers });
+          if (!res.ok) throw new Error(`Lỗi tải file (${res.status})`);
+          const blob = await res.blob();
+          
+          if (docxContainerRef.current && isMounted) {
             docxContainerRef.current.innerHTML = '';
-            renderAsync(blob, docxContainerRef.current).then(() => setLoading(false));
+            await renderAsync(blob, docxContainerRef.current);
+            setLoading(false);
           }
-        })
-        .catch((err) => {
-          setErrorMsg('Lỗi render file Word: ' + err.message);
-          setLoading(false);
-        });
-    } else if (ext === 'doc') {
-      setLoading(false);
-    }
-    // 2. File Excel (.xlsx, .xls, .csv)
-    else if (['xlsx', 'xls', 'csv'].includes(ext)) {
-      fetch(fileUrl)
-        .then((res) => {
-          if (!res.ok) throw new Error('Không tải được file');
-          return res.arrayBuffer();
-        })
-        .then((buffer) => {
+        } else if (ext === 'doc') {
+          if (isMounted) setLoading(false);
+        }
+        // 2. File Excel (.xlsx, .xls, .csv)
+        else if (['xlsx', 'xls', 'csv'].includes(ext)) {
+          const res = await fetch(fileUrl, { headers });
+          if (!res.ok) throw new Error(`Lỗi tải file (${res.status})`);
+          const buffer = await res.arrayBuffer();
+
           const workbook = XLSX.read(buffer, {
             type: 'array',
             cellStyles: true,
@@ -83,47 +96,50 @@ export default function DocPreviewModal({
           const worksheet = workbook.Sheets[firstSheetName];
           const html = XLSX.utils.sheet_to_html(worksheet);
 
-          setExcelHtml(html);
-          setLoading(false);
-        })
-        .catch((err) => {
-          setErrorMsg('Lỗi render file Excel: ' + err.message);
-          setLoading(false);
-        });
-    }
-    // 3. File PowerPoint (.pptx & .ppt)
-    else if (['pptx', 'ppt'].includes(ext)) {
-      if (ext === 'ppt') {
-        setLoading(false);
-        return;
-      }
+          if (isMounted) {
+            setExcelHtml(html);
+            setLoading(false);
+          }
+        }
+        // 3. File PowerPoint (.pptx & .ppt)
+        else if (['pptx', 'ppt'].includes(ext)) {
+          if (ext === 'ppt') {
+            if (isMounted) setLoading(false);
+            return;
+          }
 
-      fetch(fileUrl)
-        .then((res) => {
-          if (!res.ok) throw new Error('Không tải được file PPTX');
-          return res.blob();
-        })
-        .then(async (blob) => {
+          const res = await fetch(fileUrl, { headers });
+          if (!res.ok) throw new Error(`Lỗi tải file PPTX (${res.status})`);
+          const blob = await res.blob();
+
           const renderer = new PptxRenderer();
           pptxRendererRef.current = renderer;
 
           await renderer.load(blob as any);
-          setPptxSlideCount(renderer.slideCount);
+          
+          if (isMounted) {
+            setPptxSlideCount(renderer.slideCount);
 
-          if (canvasRef.current && renderer.slideCount > 0) {
-            await renderer.renderSlide(0, canvasRef.current, 1000);
+            if (canvasRef.current && renderer.slideCount > 0) {
+              await renderer.renderSlide(0, canvasRef.current, 1000);
+            }
+            setLoading(false);
           }
+        } else {
+          if (isMounted) setLoading(false);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          setErrorMsg(err.message || 'Lỗi render file');
           setLoading(false);
-        })
-        .catch((err) => {
-          setErrorMsg('Lỗi render file Slide PPTX: ' + err.message);
-          setLoading(false);
-        });
-    } else {
-      setLoading(false);
-    }
+        }
+      }
+    };
+
+    loadDocument();
 
     return () => {
+      isMounted = false;
       if (pptxRendererRef.current) {
         try {
           pptxRendererRef.current.destroy();
@@ -144,7 +160,9 @@ export default function DocPreviewModal({
   if (!isOpen) return null;
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const absoluteFileUrl = `${origin}${fileUrl}`;
+  const absoluteFileUrl = authenticatedUrl.startsWith('http')
+    ? authenticatedUrl
+    : `${origin}${authenticatedUrl}`;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
@@ -193,12 +211,19 @@ export default function DocPreviewModal({
 
           {/* 1. PDF */}
           {ext === 'pdf' && (
-            <iframe src={fileUrl} className="w-full h-full rounded-xl border-none shadow-sm" />
+            <iframe
+              src={authenticatedUrl}
+              className="w-full h-full rounded-xl border-none shadow-sm"
+            />
           )}
 
           {/* 2. Ảnh */}
           {['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext) && (
-            <img src={fileUrl} alt={fileName} className="max-w-full max-h-full object-contain rounded-xl shadow-sm" />
+            <img
+              src={authenticatedUrl}
+              alt={fileName}
+              className="max-w-full max-h-full object-contain rounded-xl shadow-sm"
+            />
           )}
 
           {/* 3. Word (.docx & .doc) */}

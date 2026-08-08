@@ -164,7 +164,7 @@ export default function CreatePostModal({ isOpen, onClose, userId, onPostSuccess
               {uploading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Đang đẩy lên Telegram...</span>
+                  <span>Đang tải lên...</span>
                 </>
               ) : (
                 <>
