@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { UserPlus, UserCheck, Clock, UserX } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Props {
   currentUserId?: string;
@@ -57,6 +58,35 @@ export default function FriendButton({ currentUserId, targetUserId }: Props) {
 
   if (!currentUserId || currentUserId === targetUserId) return null;
 
+  // HELPER CHECK BAN CẢ 2 BÊN
+  const checkBanStatus = async (): Promise<boolean> => {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, is_banned')
+      .in('id', [currentUserId, targetUserId]);
+
+    const myProfile = profiles?.find((p) => p.id === currentUserId);
+    const targetProfile = profiles?.find((p) => p.id === targetUserId);
+
+    if (myProfile?.is_banned) {
+      toast.error('Tài khoản bị khóa!', {
+        description: 'Tài khoản của bạn đã bị BAN vĩnh viễn.',
+      });
+      await supabase.auth.signOut();
+      window.location.href = '/';
+      return true;
+    }
+
+    if (targetProfile?.is_banned) {
+      toast.error('Không thể kết bạn!', {
+        description: 'Tài khoản này đã bị khóa vĩnh viễn.',
+      });
+      return true;
+    }
+
+    return false;
+  };
+
   // BẮN SỰ KIỆN ĐỂ BÁO CHO MẤY COMPONENT KHÁC VÀ POPOVER
   const notifyUpdate = () => {
     window.dispatchEvent(new Event('friendshipUpdated'));
@@ -64,6 +94,12 @@ export default function FriendButton({ currentUserId, targetUserId }: Props) {
 
   const handleSendRequest = async () => {
     setLoading(true);
+
+    if (await checkBanStatus()) {
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('friends')
       .insert({ sender_id: currentUserId, receiver_id: targetUserId, status: 'pending' })
@@ -74,6 +110,9 @@ export default function FriendButton({ currentUserId, targetUserId }: Props) {
       setStatus('pending_sent');
       setRequestId(data.id);
       notifyUpdate();
+      toast.success('Đã gửi lời mời kết bạn');
+    } else if (error) {
+      toast.error('Không thể gửi lời mời!', { description: error.message });
     }
     setLoading(false);
   };
@@ -81,6 +120,12 @@ export default function FriendButton({ currentUserId, targetUserId }: Props) {
   const handleAccept = async () => {
     if (!requestId) return;
     setLoading(true);
+
+    if (await checkBanStatus()) {
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase
       .from('friends')
       .update({ status: 'accepted' })
@@ -89,6 +134,9 @@ export default function FriendButton({ currentUserId, targetUserId }: Props) {
     if (!error) {
       setStatus('accepted');
       notifyUpdate();
+      toast.success('Đã trở thành bạn bè 🎉');
+    } else {
+      toast.error('Lỗi chấp nhận lời mời!', { description: error.message });
     }
     setLoading(false);
   };

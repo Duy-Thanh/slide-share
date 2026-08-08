@@ -42,6 +42,24 @@ export default function UploadModal({
     setUploading(true);
 
     try {
+      // 💥 1. BẢO VỆ: CHECK BAN TRƯỚC KHIN TIẾN HÀNH UPLOAD FILE
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_banned')
+        .eq('id', userId)
+        .single();
+
+      if (profile?.is_banned) {
+        toast.error('Tài khoản bị khóa!', {
+          description: 'Tài khoản của bạn đã bị BAN vĩnh viễn, đéo thể upload tài liệu.',
+        });
+        await supabase.auth.signOut();
+        onClose();
+        window.location.href = '/';
+        return;
+      }
+
+      // 2. Upload file lên API Storage
       const formData = new FormData();
       formData.append('file', file);
 
@@ -49,6 +67,7 @@ export default function UploadModal({
       const tgData = await res.json();
       if (!res.ok) throw new Error(tgData.error);
 
+      // 3. Lưu thông tin tài liệu vào Supabase
       const { error: dbError } = await supabase.from('documents').insert([
         {
           title,
@@ -67,6 +86,7 @@ export default function UploadModal({
 
       if (dbError) throw dbError;
 
+      // 4. Cộng 20 Coins cho người dùng
       const updatedPoints = userPoints + 20;
       await supabase.from('profiles').update({ points: updatedPoints }).eq('id', userId);
 

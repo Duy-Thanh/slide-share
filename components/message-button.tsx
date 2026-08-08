@@ -2,6 +2,8 @@
 
 import { MessageSquare } from 'lucide-react';
 import { Profile } from '@/types/database';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 interface Props {
   targetUser: Profile;
@@ -10,9 +12,31 @@ interface Props {
 }
 
 export default function MessageButton({ targetUser, currentUserId, variant = 'small' }: Props) {
-  if (!currentUserId || currentUserId === targetUser?.id) return null;
+  // 💥 CHẶN RENDER NẾU ĐỐI PHƯƠNG BỊ BAN HẶC LÀ CHÍNH MÌNH
+  if (!currentUserId || currentUserId === targetUser?.id || targetUser?.is_banned) return null;
 
-  const handleOpenChat = () => {
+  const handleOpenChat = async () => {
+    // 💥 CHECK BAN CẢ 2 BÊN TRƯỚC KHIN MỞ CHAT
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, is_banned')
+      .in('id', [currentUserId, targetUser.id]);
+
+    const myProfile = profiles?.find((p) => p.id === currentUserId);
+    const targetProfile = profiles?.find((p) => p.id === targetUser.id);
+
+    if (myProfile?.is_banned) {
+      toast.error('Tài khoản bị khóa!', { description: 'Bạn không thể nhắn tin.' });
+      await supabase.auth.signOut();
+      window.location.href = '/';
+      return;
+    }
+
+    if (targetProfile?.is_banned) {
+      toast.error('Không thể nhắn tin!', { description: 'Tài khoản này đã bị BAN vĩnh viễn.' });
+      return;
+    }
+
     window.dispatchEvent(
       new CustomEvent('openChatWithUser', {
         detail: { user: targetUser },

@@ -6,14 +6,16 @@ import UserAvatar from '@/components/user-avatar';
 import UserBadge from '@/components/user-badge';
 import Link from 'next/link';
 import { Users, UserX, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Props {
   userId: string;
+  currentUserId?: string; // 💥 Thêm để check quyền chính chủ
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function FriendListModal({ userId, isOpen, onClose }: Props) {
+export default function FriendListModal({ userId, currentUserId, isOpen, onClose }: Props) {
   const [friends, setFriends] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,13 +33,17 @@ export default function FriendListModal({ userId, isOpen, onClose }: Props) {
       .eq('status', 'accepted');
 
     if (data) {
-      const formatted = data.map((item) => {
-        const friendProfile = item.sender_id === userId ? item.receiver : item.sender;
-        return {
-          friendshipId: item.id,
-          profile: friendProfile,
-        };
-      });
+      const formatted = data
+        .map((item) => {
+          const friendProfile = item.sender_id === userId ? item.receiver : item.sender;
+          return {
+            friendshipId: item.id,
+            profile: friendProfile,
+          };
+        })
+        // 💥 LỌC BỎ CÁC TÀI KHOẢN ĐÃ BỊ BAN KHỎI DANH SÁCH
+        .filter((item) => item.profile && !item.profile.is_banned);
+
       setFriends(formatted);
     }
     setLoading(false);
@@ -45,14 +51,36 @@ export default function FriendListModal({ userId, isOpen, onClose }: Props) {
 
   const handleUnfriend = async (friendshipId: string) => {
     if (!confirm('Hủy kết bạn với người này?')) return;
-    await supabase.from('friends').delete().eq('id', friendshipId);
-    setFriends((prev) => prev.filter((f) => f.friendshipId !== friendshipId));
 
-    // BẮN EVENT CẬP NHẬT TRẠNG THÁI REALTIME CHO CÁC FRIEND_BUTTON KHÁC
-    window.dispatchEvent(new Event('friendshipUpdated'));
+    // Check BAN chính mình trước khi thao tác
+    if (currentUserId) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_banned')
+        .eq('id', currentUserId)
+        .single();
+
+      if (profile?.is_banned) {
+        toast.error('Tài khoản bị khóa!', { description: 'Bạn không thể thực hiện thao tác này.' });
+        await supabase.auth.signOut();
+        window.location.href = '/';
+        return;
+      }
+    }
+
+    const { error } = await supabase.from('friends').delete().eq('id', friendshipId);
+    if (!error) {
+      setFriends((prev) => prev.filter((f) => f.friendshipId !== friendshipId));
+      window.dispatchEvent(new Event('friendshipUpdated'));
+      toast.info('Đã hủy kết bạn');
+    } else {
+      toast.error('Lỗi khi hủy kết bạn: ' + error.message);
+    }
   };
 
   if (!isOpen) return null;
+
+  const isOwner = currentUserId === userId;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
@@ -82,7 +110,7 @@ export default function FriendListModal({ userId, isOpen, onClose }: Props) {
                 className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl transition-colors text-xs gap-2"
               >
                 <Link
-                  href={`/profile/${profile.id}`}
+                  href={currentUserId === profile.id ? '/profile' : `/profile/${profile.id}`}
                   onClick={onClose}
                   className="flex items-center gap-2.5 truncate flex-1 min-w-0"
                 >
@@ -96,13 +124,16 @@ export default function FriendListModal({ userId, isOpen, onClose }: Props) {
                   </div>
                 </Link>
 
-                <button
-                  onClick={() => handleUnfriend(friendshipId)}
-                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 font-bold text-[11px] rounded-lg transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
-                >
-                  <UserX className="w-3.5 h-3.5" />
-                  <span className="hidden xs:inline">Hủy bạn</span>
-                </button>
+                {/* 💥 CHỈ CHÍNH CHỦ MỚI CÓ NÚT HỦY BẠN BÈ */}
+                {isOwner && (
+                  <button
+                    onClick={() => handleUnfriend(friendshipId)}
+                    className="px-2.5 py-1.5 bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 font-bold text-[11px] rounded-lg transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+                  >
+                    <UserX className="w-3.5 h-3.5" />
+                    <span className="hidden xs:inline">Hủy bạn</span>
+                  </button>
+                )}
               </div>
             ))
           ) : (

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import UserAvatar from '@/components/user-avatar';
 import { UserCheck, UserX, UserPlus } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Props {
   currentUserId: string;
@@ -16,13 +17,20 @@ export default function FriendRequestsPopover({ currentUserId }: Props) {
   useEffect(() => {
     if (currentUserId) {
       fetchRequests();
+
+      // 💥 LẮNG NGHE SỰ KIỆN SYNC LỜI MỜI REALTIME
+      const handleGlobalUpdate = () => fetchRequests();
+      window.addEventListener('friendshipUpdated', handleGlobalUpdate);
+
+      return () => {
+        window.removeEventListener('friendshipUpdated', handleGlobalUpdate);
+      };
     }
   }, [currentUserId]);
 
   const fetchRequests = async () => {
     if (!currentUserId) return;
 
-    // Fetch lời mời kết bạn có status là 'pending' gửi ĐẾN currentUserId
     const { data, error } = await supabase
       .from('friends')
       .select(`
@@ -35,7 +43,8 @@ export default function FriendRequestsPopover({ currentUserId }: Props) {
           id,
           full_name,
           avatar_url,
-          faculty
+          faculty,
+          is_banned
         )
       `)
       .eq('receiver_id', currentUserId)
@@ -47,29 +56,45 @@ export default function FriendRequestsPopover({ currentUserId }: Props) {
     }
 
     if (data) {
-      setRequests(data);
+      // 💥 LỌC BỎ CÁC LỜI MỜI TỪ NICK BỊ BAN
+      const validRequests = data.filter((req: any) => req.profiles && !req.profiles.is_banned);
+      setRequests(validRequests);
     }
   };
 
   const handleAction = async (requestId: string, status: 'accepted' | 'rejected') => {
+    // Check trạng thái BAN chính mình trước khi thao tác
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_banned')
+      .eq('id', currentUserId)
+      .single();
+
+    if (profile?.is_banned) {
+      toast.error('Tài khoản bị khóa!', { description: 'Bạn không thể đồng ý lời mời kết bạn.' });
+      await supabase.auth.signOut();
+      window.location.href = '/';
+      return;
+    }
+
     if (status === 'accepted') {
-        await supabase.from('friends').update({ status: 'accepted' }).eq('id', requestId);
+      const { error } = await supabase.from('friends').update({ status: 'accepted' }).eq('id', requestId);
+      if (!error) toast.success('Đã đồng ý kết bạn 🎉');
     } else {
-        await supabase.from('friends').delete().eq('id', requestId);
+      await supabase.from('friends').delete().eq('id', requestId);
+      toast.info('Đã xóa lời mời');
     }
 
     fetchRequests();
-
-    // 💥 BẮN SỰ KIỆN ĐỂ TẤT CẢ FRIEND_BUTTON TRÊN MÀN HÌNH BIẾT MÀ RE-FETCH LẠI
     window.dispatchEvent(new Event('friendshipUpdated'));
-    };
+  };
 
   return (
     <div className="relative">
       <button
         onClick={() => {
           setIsOpen(!isOpen);
-          if (!isOpen) fetchRequests(); // Re-fetch mỗi khi click mở popover
+          if (!isOpen) fetchRequests();
         }}
         className="p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition-colors relative cursor-pointer"
         title="Lời mời kết bạn"
