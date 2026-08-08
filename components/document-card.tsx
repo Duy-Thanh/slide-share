@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { DocumentItem, CommentItem } from '@/types/database';
+import { DocumentItem } from '@/types/database';
 import { 
   Heart, 
   Bookmark, 
@@ -68,12 +68,39 @@ export default function DocumentCard({
     setCommentsCount(doc.comments_count || 0);
   }, [doc.has_upvoted, doc.upvotes_count, doc.has_bookmarked, doc.id, doc.comments_count, currentUserId]);
 
+  // 💥 CHẶN RENDER NẾU CHỦ BÀI VIẾT BỊ BAN
+  if (doc.profiles?.is_banned) {
+    return null;
+  }
+
+  // HELPER CHECK BAN CHÍNH MÌNH
+  const checkMyBanStatus = async () => {
+    if (!currentUserId) return false;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_banned')
+      .eq('id', currentUserId)
+      .single();
+
+    if (profile?.is_banned) {
+      toast.error('Tài khoản bị khóa!', {
+        description: 'Tài khoản của bạn đã bị BAN vĩnh viễn, đéo thể thực hiện thao tác này.',
+      });
+      await supabase.auth.signOut();
+      window.location.href = '/';
+      return true;
+    }
+    return false;
+  };
+
   // HELPER TRỪ COINS DÙNG CHUNG KHI XEM TRỰC TIẾP & TẢI VỀ
   const checkAndDeductPoints = async (actionName: string): Promise<boolean> => {
     if (!currentUserId) {
       toast.warning(`Bạn cần đăng nhập để ${actionName}!`);
       return false;
     }
+
+    if (await checkMyBanStatus()) return false;
 
     // Chính chủ bài viết -> Miễn phí
     if (doc.user_id === currentUserId) return true;
@@ -136,6 +163,7 @@ export default function DocumentCard({
   // Xử lý Thả tim Upvote
   const handleToggleUpvote = async () => {
     if (!currentUserId) return toast.warning('Bạn phải đăng nhập mới thả tim được nhé!');
+    if (await checkMyBanStatus()) return;
 
     const previousUpvoted = upvoted;
     const previousCount = upvoteCount;
@@ -167,6 +195,7 @@ export default function DocumentCard({
   // Xử lý Bookmark
   const handleToggleBookmark = async () => {
     if (!currentUserId) return toast.warning('Đăng nhập để lưu bài viết nhé!');
+    if (await checkMyBanStatus()) return;
 
     const previousBookmarked = bookmarked;
     const nextBookmarked = !bookmarked;
@@ -271,6 +300,8 @@ export default function DocumentCard({
 
   const handleDelete = async () => {
     if (!confirm('Bạn có chắc muốn xóa bài viết này không?')) return;
+    if (await checkMyBanStatus()) return;
+
     onDelete?.(doc.id);
     const tableName = isPostMedia ? 'posts' : 'documents';
     const { error } = await supabase.from(tableName).delete().eq('id', doc.id);
@@ -363,7 +394,7 @@ export default function DocumentCard({
           </p>
         )}
 
-        {/* BANNER TĨNH TÀI LIỆU (OPTIMIZED - KHÔNG PHÁT REQUEST IFRAME TỰ ĐỘNG) */}
+        {/* BANNER TĨNH TÀI LIỆU */}
         {doc.file_id && (
           <div className="space-y-2 pt-1">
             <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-[11px]">
