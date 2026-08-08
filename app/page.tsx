@@ -500,6 +500,18 @@ export default function HomePage() {
     }
   };
 
+  const handleUploadSuccess = (newPoints: number) => {
+    // Update ngay điểm Header & Sidebar
+    if (profile) setProfile((prev) => (prev ? { ...prev, points: newPoints } : null));
+
+    // Fetch lại feed bài viết & Top đóng góp
+    if (feedType === 'docs') fetchDocs(true);
+    else fetchPosts(true);
+
+    fetchTopContributors();
+    fetchTrendingSubjects();
+  };
+
   const handleRefreshFeed = () => {
     if (feedType === 'docs') fetchDocs(true);
     else fetchPosts(true);
@@ -989,7 +1001,7 @@ export default function HomePage() {
             onClose={() => setIsUploadOpen(false)}
             userId={user.id}
             userPoints={profile?.points || 0}
-            onUploadSuccess={handleRefreshFeed}
+            onUploadSuccess={handleUploadSuccess} // 💥 Dùng handleUploadSuccess thay vì handleRefreshFeed
           />
 
           <CreatePostModal
