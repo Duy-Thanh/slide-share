@@ -14,6 +14,7 @@ import FriendRequestsPopover from '@/components/friend-requests-popover';
 import UserBadge from '@/components/user-badge';
 import ChatListPopover from '@/components/chat-list-popover';
 import BetaBanner from '@/components/beta-banner';
+import { toast } from 'sonner';
 import {
   Search,
   LogIn,
@@ -213,13 +214,24 @@ export default function HomePage() {
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (data) setProfile(data);
+    if (data) {
+      // 💥 CHECK BAN TRỰC TIẾP
+      if (data.is_banned) {
+        toast.error('Tài khoản bị khóa vĩnh viễn!', { description: 'Bạn đã bị cấm truy cập hệ thống.' });
+        await supabase.auth.signOut();
+        setUser(null);
+        setProfile(null);
+        return;
+      }
+      setProfile(data);
+    }
   };
 
   const fetchTopContributors = async () => {
     const { data } = await supabase
       .from('profiles')
       .select('*')
+      .eq('is_banned', false) // 💥 CHỈ LẤY NICK KHÔNG BỊ BAN
       .order('points', { ascending: false })
       .limit(5);
     if (data) setTopContributors(data);
@@ -260,11 +272,13 @@ export default function HomePage() {
       if (!error && data) {
         if (data.length < PAGE_SIZE) setHasMoreDocs(false);
 
-        let formattedDocs = data.map((doc: any) => ({
-          ...doc,
-          post_type: 'document',
-          comments_count: doc.comments?.[0]?.count || 0,
-        }));
+        let formattedDocs = data
+          .filter((doc: any) => doc.profiles && !doc.profiles.is_banned) // 💥 ẨN TÀI LIỆU CỦA NICK BỊ BAN
+          .map((doc: any) => ({
+            ...doc,
+            post_type: 'document',
+            comments_count: doc.comments?.[0]?.count || 0,
+          }));
 
         if (currentUid && formattedDocs.length > 0) {
           const docIds = formattedDocs.map((d) => d.id);
@@ -339,13 +353,15 @@ export default function HomePage() {
       if (!error && data) {
         if (data.length < PAGE_SIZE) setHasMorePosts(false);
 
-        let formattedPosts = data.map((post: any) => ({
-          ...post,
-          post_type: 'post',
-          title: '',
-          comments_count: post.comments?.[0]?.count || 0,
-          upvotes_count: post.post_upvotes?.[0]?.count || 0,
-        }));
+        let formattedPosts = data
+          .filter((post: any) => post.profiles && !post.profiles.is_banned) // 💥 ẨN BÀI VIẾT CỦA NICK BỊ BAN
+          .map((post: any) => ({
+            ...post,
+            post_type: 'post',
+            title: '',
+            comments_count: post.comments?.[0]?.count || 0,
+            upvotes_count: post.post_upvotes?.[0]?.count || 0,
+          }));
 
         if (currentUid && formattedPosts.length > 0) {
           const postIds = formattedPosts.map((p) => p.id);
@@ -930,7 +946,7 @@ export default function HomePage() {
             </p>
 
             <p className="text-[10px] text-slate-400 text-center font-medium">
-              © {new Date().getFullYear()} CyberDay Studios Publishing • All right reserved
+              © 2026 CyberDay Studios Publishing • All right reserved
             </p>
           </aside>
         </div>
