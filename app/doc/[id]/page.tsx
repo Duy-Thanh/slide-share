@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import DocumentCard from '@/components/document-card';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, BookOpen } from 'lucide-react';
+import { ArrowLeft, Loader2, BookOpen, ShieldAlert } from 'lucide-react';
 
 export default function DocumentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: docId } = use(params);
@@ -19,9 +19,14 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     supabase.auth.getSession().then(({ data: { session } }) => {
       setCurrentUser(session?.user ?? null);
       if (session?.user) {
-        supabase.from('profiles').select('*').eq('id', session.user.id).single().then(({ data }) => {
-          if (data) setProfile(data);
-        });
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+          .then(({ data }) => {
+            if (data) setProfile(data);
+          });
       }
     });
 
@@ -37,7 +42,8 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
       .eq('id', docId)
       .single();
 
-    if (error || !data) {
+    // 💥 CHẶN NGAY: NẾU KHÔNG CÓ DỮ LIỆU HOẶC NGƯỜI ĐĂNG TÀI LIỆU ĐÃ BỊ BAN
+    if (error || !data || data.profiles?.is_banned) {
       setNotFound(true);
       setLoading(false);
       return;
@@ -54,8 +60,18 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
 
     if (currentUid) {
       const [upvoteRes, bookmarkRes] = await Promise.all([
-        supabase.from('upvotes').select('id').eq('document_id', docId).eq('user_id', currentUid).single(),
-        supabase.from('bookmarks').select('id').eq('document_id', docId).eq('user_id', currentUid).single(),
+        supabase
+          .from('upvotes')
+          .select('id')
+          .eq('document_id', docId)
+          .eq('user_id', currentUid)
+          .single(),
+        supabase
+          .from('bookmarks')
+          .select('id')
+          .eq('document_id', docId)
+          .eq('user_id', currentUid)
+          .single(),
       ]);
 
       formattedDoc.has_upvoted = !!upvoteRes.data;
@@ -94,14 +110,24 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
             <span>Đang tải tài liệu...</span>
           </div>
         ) : notFound || !doc ? (
-          <div className="bg-white text-center py-16 rounded-2xl border border-slate-200 space-y-3">
-            <p className="text-base font-bold text-slate-700">Tài liệu không tồn tại hoặc đã bị xóa!</p>
-            <Link
-              href="/"
-              className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-colors"
-            >
-              Về trang chủ
-            </Link>
+          <div className="bg-white text-center py-16 px-4 rounded-2xl border border-slate-200 space-y-3">
+            <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <p className="text-base font-bold text-slate-800">
+              Tài liệu không tồn tại hoặc đã bị xóa!
+            </p>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              Tài liệu này có thể đã bị gỡ bởi tác giả hoặc tài khoản đóng góp đã bị khóa do vi phạm quy định hệ thống.
+            </p>
+            <div className="pt-2">
+              <Link
+                href="/"
+                className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-colors shadow-md shadow-blue-500/20"
+              >
+                Về trang chủ
+              </Link>
+            </div>
           </div>
         ) : (
           <DocumentCard

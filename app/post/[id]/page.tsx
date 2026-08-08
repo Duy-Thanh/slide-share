@@ -3,9 +3,8 @@
 import { useState, useEffect, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import DocumentCard from '@/components/document-card';
-import UserAvatar from '@/components/user-avatar';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, MessageSquareText } from 'lucide-react';
+import { ArrowLeft, Loader2, MessageSquareText, ShieldAlert } from 'lucide-react';
 
 export default function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: postId } = use(params);
@@ -20,9 +19,14 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
     supabase.auth.getSession().then(({ data: { session } }) => {
       setCurrentUser(session?.user ?? null);
       if (session?.user) {
-        supabase.from('profiles').select('*').eq('id', session.user.id).single().then(({ data }) => {
-          if (data) setProfile(data);
-        });
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+          .then(({ data }) => {
+            if (data) setProfile(data);
+          });
       }
     });
 
@@ -38,7 +42,8 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
       .eq('id', postId)
       .single();
 
-    if (error || !data) {
+    // 💥 KIỂM TRA: NẾU KHÔNG CÓ DATA HOẶC TÁC GIẢ BÀI VIẾT ĐÃ BỊ BAN -> ẨN BÀI VIẾT NGAY
+    if (error || !data || data.profiles?.is_banned) {
       setNotFound(true);
       setLoading(false);
       return;
@@ -94,14 +99,24 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
             <span>Đang tải bài viết...</span>
           </div>
         ) : notFound || !post ? (
-          <div className="bg-white text-center py-16 rounded-2xl border border-slate-200 space-y-3">
-            <p className="text-base font-bold text-slate-700">Bài viết không tồn tại hoặc đã bị xóa!</p>
-            <Link
-              href="/"
-              className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-colors"
-            >
-              Về trang chủ
-            </Link>
+          <div className="bg-white text-center py-16 px-4 rounded-2xl border border-slate-200 space-y-3">
+            <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <p className="text-base font-bold text-slate-800">
+              Bài viết không tồn tại hoặc đã bị gỡ!
+            </p>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              Bài viết này có thể đã bị xóa bởi tác giả hoặc tài khoản người đăng đã bị khóa do vi phạm quy định.
+            </p>
+            <div className="pt-2">
+              <Link
+                href="/"
+                className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-colors shadow-md shadow-blue-500/20"
+              >
+                Về trang chủ
+              </Link>
+            </div>
           </div>
         ) : (
           <DocumentCard
